@@ -13,6 +13,9 @@ const SESSION_TTL = 7 * 24 * 60 * 60 * 1000;
 const users = new Map();
 const servers = new Map();
 const sessions = new Map();
+const agents = new Map();
+const tasks = new Map();
+const pairingCodes = new Map();
 const loginAttempts = new Map();
 let saveQueue = Promise.resolve();
 
@@ -103,7 +106,9 @@ async function verifyPassword(password, user) {
 async function saveData() {
   const data = JSON.stringify({
     users: [...users.values()],
-    servers: [...servers.values()]
+    servers: [...servers.values()],
+    agents: [...agents.values()],
+    tasks: [...tasks.values()]
   }, null, 2);
   saveQueue = saveQueue.then(async () => {
     await fs.promises.mkdir(DATA_DIR, { recursive: true });
@@ -120,9 +125,35 @@ async function loadData() {
     const data = JSON.parse(await fs.promises.readFile(DATA_FILE, "utf8"));
     for (const user of data.users || []) users.set(user.id, user);
     for (const server of data.servers || []) servers.set(server.id, server);
+    for (const agent of data.agents || []) agents.set(agent.id, agent);
+    for (const task of data.tasks || []) tasks.set(task.id, task);
   } catch (error) {
     if (error.code !== "ENOENT") throw error;
   }
+}
+
+
+function hashToken(token) {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+function getAgent(req) {
+  const header = String(req.headers.authorization || "");
+  const match = header.match(/^Bearer ([a-f0-9]{64})$/i);
+  if (!match) return null;
+  const tokenHash = hashToken(match[1]);
+  return [...agents.values()].find(agent => agent.tokenHash === tokenHash) || null;
+}
+function agentIsOnline(agent) {
+  return !!agent && Date.now() - Date.parse(agent.lastSeenAt || 0) < 90_000;
+}
+function enqueueTask(agent, server, type, payload = {}) {
+  const task = {
+    id: crypto.randomUUID(), agentId: agent.id, userId: server.userId,
+    serverId: server.id, type, payload, status: "queued",
+    createdAt: new Date().toISOString(), attempts: 0
+  };
+  tasks.set(task.id, task);
+  return task;
 }
 
 function isRateLimited(req) {
@@ -161,7 +192,7 @@ const app = http.createServer(async (req, res) => {
   const url = new URL(req.url, "http://localhost");
 
   if (req.method === "GET" && url.pathname === "/api/health") {
-    return sendJson(res, 200, { ok: true, service: "dragonhost", version: "0.4.0", message: "DragonHost API تعمل" });
+    return sendJson(res, 200, { ok: true, service: "dragonhost", version: "0.5.0", message: "DragonHost API تعمل" });
   }
 
   if (req.method === "POST" && ["/api/auth/register", "/api/auth/login"].includes(url.pathname)) {
@@ -219,6 +250,115 @@ const app = http.createServer(async (req, res) => {
     return sendJson(res, 200, { ok: true });
   }
 
+
+  // Device pairing: short-lived one-time code created by the signed-in user.
+  if (req.method === "POST" && url.pathname === "/api/agent/pair-code") {
+    const user = getUser(req);
+    if (!user) return sendJson(res, 401, { error: "سجّل الدخول أولاً." });
+    for (const [code, item] of pairingCodes) if (item.expiresAt <= Date.now()) pairingCodes.delete(code);
+    const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
+    pairingCodes.set(code, { userId: user.id, expiresAt: Date.now() + 5 * 60 * 1000 });
+    return sendJson(res, 201, { code, expiresInSeconds: 300, message: "استخدم الرمز مرة واحدة خلال 5 دقائق من تطبيق Hosting Agent." });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/agent/pair") {
+    try {
+      const body = await readBody(req);
+      const code = String(body.code || "");
+      const pairing = pairingCodes.get(code);
+      if (!/^\d{6}$/.test(code) || !pairing || pairing.expiresAt <= Date.now()) {
+        pairingCodes.delete(code);
+        return sendJson(res, 400, { error: "رمز الربط غير صحيح أو منتهي الصلاحية." });
+      }
+      pairingCodes.delete(code);
+      const token = crypto.randomBytes(32).toString("hex");
+      const agent = {
+        id: crypto.randomUUID(), userId: pairing.userId,
+        name: String(body.deviceName || "DragonHost Android").trim().slice(0, 48) || "DragonHost Android",
+        tokenHash: hashToken(token), createdAt: new Date().toISOString(),
+        lastSeenAt: new Date().toISOString(), status: "online"
+      };
+      agents.set(agent.id, agent);
+      await saveData();
+      return sendJson(res, 201, { agent: { id: agent.id, name: agent.name }, token, pollIntervalSeconds: 5 });
+    } catch (error) {
+      console.error("Agent pairing error:", error);
+      return sendJson(res, 500, { error: "تعذر ربط جهاز الاستضافة." });
+    }
+  }
+
+  if (url.pathname.startsWith("/api/agent/") && url.pathname !== "/api/agent/pair-code" && url.pathname !== "/api/agent/pair") {
+    const agent = getAgent(req);
+    if (!agent) return sendJson(res, 401, { error: "رمز جهاز الاستضافة غير صالح." });
+
+    if (req.method === "POST" && url.pathname === "/api/agent/heartbeat") {
+      try {
+        const body = await readBody(req);
+        agent.lastSeenAt = new Date().toISOString();
+        agent.status = "online";
+        if (body.deviceName) agent.name = String(body.deviceName).trim().slice(0, 48);
+        if (body.platform) agent.platform = String(body.platform).slice(0, 40);
+        if (body.agentVersion) agent.agentVersion = String(body.agentVersion).slice(0, 32);
+        await saveData();
+        return sendJson(res, 200, { ok: true, serverCount: [...servers.values()].filter(s => s.userId === agent.userId).length });
+      } catch { return sendJson(res, 400, { error: "بيانات النبض غير صالحة." }); }
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/agent/tasks") {
+      agent.lastSeenAt = new Date().toISOString();
+      agent.status = "online";
+      const pending = [...tasks.values()].filter(task => task.agentId === agent.id && task.status === "queued").slice(0, 5);
+      for (const task of pending) {
+        task.status = "claimed";
+        task.claimedAt = new Date().toISOString();
+        task.attempts = (task.attempts || 0) + 1;
+      }
+      if (pending.length) await saveData();
+      return sendJson(res, 200, { tasks: pending });
+    }
+
+    const resultMatch = url.pathname.match(/^\/api\/agent\/tasks\/([0-9a-f-]+)\/result$/i);
+    if (req.method === "POST" && resultMatch) {
+      try {
+        const body = await readBody(req);
+        const task = tasks.get(resultMatch[1]);
+        if (!task || task.agentId !== agent.id || !["claimed", "running"].includes(task.status)) {
+          return sendJson(res, 404, { error: "المهمة غير موجودة أو لم تعد متاحة." });
+        }
+        const success = body.success === true;
+        task.status = success ? "completed" : "failed";
+        task.finishedAt = new Date().toISOString();
+        task.message = String(body.message || "").slice(0, 500);
+        const server = servers.get(task.serverId);
+        if (server) {
+          if (task.type === "provision") {
+            server.status = success ? "offline" : "error";
+            server.hostStatus = success ? "ready" : "provision_failed";
+            if (body.port) server.port = Number(body.port);
+            if (body.address) server.hostAddress = String(body.address).slice(0, 120);
+          } else if (task.type === "start") {
+            server.status = success ? "online" : "error";
+          } else if (task.type === "stop") {
+            server.status = success ? "offline" : "error";
+          }
+          server.updatedAt = new Date().toISOString();
+        }
+        await saveData();
+        return sendJson(res, 200, { ok: true, task: { id: task.id, status: task.status } });
+      } catch { return sendJson(res, 400, { error: "نتيجة المهمة غير صالحة." }); }
+    }
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/agent/status") {
+    const user = getUser(req);
+    if (!user) return sendJson(res, 401, { error: "سجّل الدخول أولاً." });
+    const owned = [...agents.values()].filter(agent => agent.userId === user.id);
+    return sendJson(res, 200, { agents: owned.map(agent => ({
+      id: agent.id, name: agent.name, status: agentIsOnline(agent) ? "online" : "offline",
+      lastSeenAt: agent.lastSeenAt, platform: agent.platform || null, agentVersion: agent.agentVersion || null
+    })) });
+  }
+
   if (req.method === "GET" && url.pathname === "/api/subdomains/check") {
     const user = getUser(req);
     if (!user) return sendJson(res, 401, { error: "سجّل الدخول أولاً." });
@@ -241,7 +381,14 @@ const app = http.createServer(async (req, res) => {
     if (actionMatch && req.method === "POST") {
       const target = servers.get(actionMatch[1]);
       if (!target || target.userId !== user.id) return sendJson(res, 404, { error: "السيرفر غير موجود." });
-      return sendJson(res, 503, { error: "جهاز الاستضافة غير متصل. لم يتم تنفيذ الأمر.", code: "AGENT_NOT_CONNECTED" });
+      const agent = [...agents.values()].find(item => item.userId === user.id && agentIsOnline(item));
+      if (!agent) return sendJson(res, 503, { error: "جهاز الاستضافة غير متصل. اربط Hosting Agent أولاً.", code: "AGENT_NOT_CONNECTED" });
+      const action = actionMatch[2];
+      const task = enqueueTask(agent, target, action);
+      target.status = action === "stop" ? "stopping" : action === "start" ? "starting" : "restarting";
+      target.updatedAt = new Date().toISOString();
+      saveData().catch(error => console.error("Task save error:", error));
+      return sendJson(res, 202, { ok: true, taskId: task.id, status: target.status });
     }
     const serverMatch = url.pathname.match(/^\/api\/servers\/([0-9a-f-]+)$/i);
     if (serverMatch) {
@@ -300,8 +447,14 @@ const app = http.createServer(async (req, res) => {
           status: "offline", hostStatus: "not_paired", createdAt: new Date().toISOString()
         };
         servers.set(server.id, server);
+        const agent = [...agents.values()].find(item => item.userId === user.id && agentIsOnline(item));
+        if (agent) {
+          server.hostStatus = "provisioning";
+          const task = enqueueTask(agent, server, "provision", { edition: server.edition, software: server.software, version: server.version });
+          server.provisionTaskId = task.id;
+        }
         await saveData();
-        return sendJson(res, 201, { server: { ...server, userId: undefined } });
+        return sendJson(res, 201, { server: { ...server, userId: undefined }, queued: !!agent });
       } catch (error) {
         console.error("Server create error:", error);
         return sendJson(res, 500, { error: "تعذر إنشاء السيرفر حالياً." });
@@ -314,7 +467,7 @@ const app = http.createServer(async (req, res) => {
 });
 
 loadData().then(() => {
-  app.listen(PORT, "0.0.0.0", () => console.log(`DragonHost v0.3.0 listening on port ${PORT}`));
+  app.listen(PORT, "0.0.0.0", () => console.log(`DragonHost v0.5.0 listening on port ${PORT}`));
 }).catch(error => {
   console.error("Failed to load DragonHost data:", error);
   process.exit(1);
