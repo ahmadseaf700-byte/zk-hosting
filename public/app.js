@@ -3,7 +3,7 @@ const authScreen = $("auth-screen"), dashboard = $("dashboard");
 const authForm = $("auth-form"), authMessage = $("auth-message"), authSubmit = $("auth-submit");
 const loginTab = $("login-tab"), registerTab = $("register-tab");
 const list = $("server-list"), wizardForm = $("wizard-form");
-let authMode = "login", currentStep = 1, subdomainTimer = null, subdomainAvailable = false;
+let authMode = "login", currentStep = 1, subdomainTimer = null, subdomainAvailable = false, cachedServers = [];
 let commandHistory = [], historyIndex = 0;
 
 function setAuthMode(mode) {
@@ -54,7 +54,7 @@ function escapeHtml(value) {
 }
 async function loadServers() {
   try {
-    const data = await api("/api/servers"), servers = data.servers || [];
+    const data = await api("/api/servers"), servers = data.servers || [];\n    cachedServers = servers;
     $("server-count").textContent = servers.length;
     if (!servers.length) {
       list.innerHTML = '<div class="empty-state empty-wide"><div class="empty-icon">🐉</div><b>عالمك الأول بانتظارك</b><p>أنشئ سيرفرك الأول واضبطه بالطريقة التي تحبها.</p><button class="primary compact" data-go-create type="button">إنشاء سيرفر جديد</button></div>';
@@ -65,9 +65,9 @@ async function loadServers() {
       <div class="server-card-top"><span class="server-cube">▦</span><span class="status-pill pending">غير متصل</span></div>
       <h3>${escapeHtml(s.name)}</h3><p class="server-address">${escapeHtml(s.subdomain || "لم يحدد عنوان")} .dragonhost.net</p>
       <div class="server-tags"><span>${escapeHtml(s.edition.toUpperCase())}</span><span>${escapeHtml(s.software)}</span><span>${escapeHtml(s.version)}</span></div>
-      <div class="server-card-bottom"><small>بانتظار جهاز الاستضافة</small><button type="button" class="text-button" data-open-console="${escapeHtml(s.id)}">فتح الكونسول ←</button></div>
+      <div class="server-card-bottom"><small>بانتظار جهاز الاستضافة</small><button type="button" class="text-button" data-manage-server="${escapeHtml(s.id)}">إدارة السيرفر ⚙</button></div>
     </article>`).join("");
-    list.querySelectorAll("[data-open-console]").forEach(btn => btn.addEventListener("click", openConsole));
+    list.querySelectorAll("[data-manage-server]").forEach(btn => btn.addEventListener("click", () => openServerManager(btn.dataset.manageServer)));
   } catch (error) { list.innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`; }
 }
 
@@ -210,7 +210,78 @@ document.addEventListener("keydown", e => { if (e.key === "Escape" && !consoleMo
 function openConsole(event) { consoleModal.hidden = false; $("console-close").focus(); }
 $("console-form").addEventListener("submit", e => e.preventDefault());
 
-(async function init() {
+
+const manager = document.createElement("div");
+manager.id = "server-manager-modal";
+manager.className = "modal-backdrop";
+manager.hidden = true;
+manager.innerHTML = `
+  <section class="console-modal" role="dialog" aria-modal="true" aria-labelledby="manager-title" style="height:auto;max-height:90vh;overflow:auto">
+    <header class="console-header"><div><b id="manager-title">إدارة السيرفر</b><small>إعدادات محفوظة في حسابك</small></div><button id="manager-close" class="icon-button" type="button">✕</button></header>
+    <form id="manager-form" style="padding:18px;overflow:auto">
+      <label for="manager-name">اسم السيرفر</label><input id="manager-name" maxlength="32" required>
+      <label for="manager-motd">رسالة MOTD</label><input id="manager-motd" maxlength="120">
+      <div class="two-cols"><div><label for="manager-mode">وضع اللعب</label><select id="manager-mode"><option value="survival">Survival</option><option value="creative">Creative</option><option value="adventure">Adventure</option></select></div><div><label for="manager-difficulty">الصعوبة</label><select id="manager-difficulty"><option value="peaceful">Peaceful</option><option value="easy">Easy</option><option value="normal">Normal</option><option value="hard">Hard</option></select></div></div>
+      <label for="manager-max">الحد الأقصى للاعبين</label><input id="manager-max" type="number" min="1" max="100" required>
+      <div class="toggle-row"><b>Offline / Cracked</b><label class="switch"><input id="manager-cracked" type="checkbox"><span></span></label></div>
+      <div class="toggle-row"><b>السماح بالطيران</b><label class="switch"><input id="manager-flight" type="checkbox"><span></span></label></div>
+      <div class="toggle-row"><b>تفعيل PvP</b><label class="switch"><input id="manager-pvp" type="checkbox"><span></span></label></div>
+      <p id="manager-message" class="form-message" role="status"></p>
+      <div class="wizard-actions"><button class="primary compact" type="submit">حفظ التعديلات</button><span class="wizard-spacer"></span><button id="manager-delete" class="secondary" type="button">حذف السيرفر</button></div>
+      <div class="notice"><b>التشغيل الفعلي</b><p>إدارة الإعدادات متاحة. تشغيل Minecraft والكونسول والملفات يحتاج ربط جهاز Hosting Agent؛ لن نعرض حالة تشغيل وهمية.</p></div>
+    </form>
+  </section>`;
+document.body.appendChild(manager);
+let managingServerId = null;
+function openServerManager(id) {
+  const server = cachedServers.find(item => item.id === id);
+  if (!server) return;
+  managingServerId = id;
+  $("manager-name").value = server.name || "";
+  $("manager-motd").value = server.motd || "";
+  $("manager-mode").value = server.gamemode || "survival";
+  $("manager-difficulty").value = server.difficulty || "normal";
+  $("manager-max").value = server.maxPlayers || 20;
+  $("manager-cracked").checked = !!server.cracked;
+  $("manager-flight").checked = !!server.allowFlight;
+  $("manager-pvp").checked = server.pvp !== false;
+  $("manager-message").textContent = "";
+  manager.hidden = false;
+}
+$("manager-close").addEventListener("click", () => manager.hidden = true);
+manager.addEventListener("click", event => { if (event.target === manager) manager.hidden = true; });
+$("manager-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  const button = $("manager-form").querySelector('[type="submit"]');
+  button.disabled = true;
+  $("manager-message").textContent = "جارٍ حفظ الإعدادات...";
+  const payload = {
+    name: $("manager-name").value.trim(), motd: $("manager-motd").value,
+    gamemode: $("manager-mode").value, difficulty: $("manager-difficulty").value,
+    maxPlayers: Number($("manager-max").value), cracked: $("manager-cracked").checked,
+    allowFlight: $("manager-flight").checked, pvp: $("manager-pvp").checked
+  };
+  try {
+    await api("/api/servers/" + encodeURIComponent(managingServerId), {
+      method: "PATCH", headers: {"Content-Type":"application/json"}, body: JSON.stringify(payload)
+    });
+    $("manager-message").textContent = "تم حفظ التعديلات بنجاح.";
+    await loadServers();
+  } catch (error) { $("manager-message").textContent = error.message; }
+  finally { button.disabled = false; }
+});
+$("manager-delete").addEventListener("click", async () => {
+  if (!managingServerId || !confirm("متأكد أنك تريد حذف هذا السيرفر وإعداداته نهائياً؟")) return;
+  const button = $("manager-delete");
+  button.disabled = true;
+  try {
+    await api("/api/servers/" + encodeURIComponent(managingServerId), {method:"DELETE"});
+    manager.hidden = true;
+    await loadServers();
+  } catch (error) { $("manager-message").textContent = error.message; }
+  finally { button.disabled = false; }
+});
+\n(async function init() {
   try { const data = await api("/api/auth/me"); showDashboard(data.user); }
   catch { showAuth(); }
 })();
