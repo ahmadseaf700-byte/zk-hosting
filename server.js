@@ -42,7 +42,9 @@ function readBody(req) {
 }
 
 function serveStatic(req, res) {
-  const pathname = decodeURIComponent(new URL(req.url, "http://localhost").pathname);
+  let pathname;
+  try { pathname = decodeURIComponent(new URL(req.url, "http://localhost").pathname); }
+  catch { res.writeHead(400); return res.end("Bad Request"); }
   const requested = pathname === "/" ? "index.html" : pathname.replace(/^\/+/, "");
   const filePath = path.resolve(PUBLIC_DIR, requested);
 
@@ -69,16 +71,16 @@ const app = http.createServer(async (req, res) => {
   if (req.method === "GET" && url.pathname === "/api/health") {
     return sendJson(res, 200, {
       ok: true,
-      service: "zk-hosting",
-      version: "0.1.0",
-      message: "لوحة التحكم تعمل"
+      service: "dragonhost",
+      version: "0.2.0",
+      message: "DragonHost API تعمل"
     });
   }
 
   if (req.method === "GET" && url.pathname === "/api/servers") {
     return sendJson(res, 200, {
       servers: [...servers.values()],
-      note: "بيانات تجريبية مؤقتة في الذاكرة؛ لم يتم ربط تطبيق Android بعد."
+      note: "إعدادات تجريبية مؤقتة؛ التشغيل الفعلي يتطلب ربط جهاز الاستضافة."
     });
   }
 
@@ -88,6 +90,7 @@ const app = http.createServer(async (req, res) => {
       const name = String(body.name || "").trim();
       const edition = String(body.edition || "").trim().toLowerCase();
       const version = String(body.version || "1.21.11").trim();
+      const software = String(body.software || "paper").trim().toLowerCase();
 
       if (name.length < 2 || name.length > 32) {
         return sendJson(res, 400, { error: "اسم السيرفر يجب أن يكون بين حرفين و32 حرفاً." });
@@ -95,12 +98,19 @@ const app = http.createServer(async (req, res) => {
       if (!["java", "bedrock"].includes(edition)) {
         return sendJson(res, 400, { error: "اختر Java أو Bedrock." });
       }
+      if (!["vanilla", "paper", "purpur"].includes(software)) {
+        return sendJson(res, 400, { error: "نوع السيرفر غير مدعوم حالياً." });
+      }
+      if (!/^\d{1,2}\.\d{1,2}(\.\d{1,2})?$/.test(version)) {
+        return sendJson(res, 400, { error: "صيغة الإصدار غير صحيحة." });
+      }
 
       const server = {
         id: crypto.randomUUID(),
         name,
         edition,
         version,
+        software: edition === "bedrock" ? "bedrock" : software,
         status: "offline",
         hostStatus: "not_paired",
         createdAt: new Date().toISOString()
@@ -117,5 +127,5 @@ const app = http.createServer(async (req, res) => {
 });
 
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`zk-hosting listening on port ${PORT}`);
+  console.log(`DragonHost listening on port ${PORT}`);
 });
