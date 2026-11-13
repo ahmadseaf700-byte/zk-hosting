@@ -30,7 +30,33 @@ async function api(path, options = {}) {
 function showDashboard(user) {
   authScreen.hidden = true; dashboard.hidden = false;
   $("signed-in-as").textContent = user.email;
+  ensureAgentConnectButton();
   loadServers();
+}
+function ensureAgentConnectButton() {
+  if ($("connect-agent-button")) return;
+  const area = document.querySelector(".sidebar-bottom");
+  if (!area) return;
+  const button = document.createElement("button");
+  button.id = "connect-agent-button";
+  button.type = "button";
+  button.className = "secondary compact";
+  button.textContent = "＋ ربط جهاز الاستضافة";
+  button.style.cssText = "margin-top:10px;width:100%;font-size:12px";
+  button.addEventListener("click", async () => {
+    button.disabled = true;
+    button.textContent = "جارٍ إنشاء رمز الربط...";
+    try {
+      const data = await api("/api/agent/pair-code", { method: "POST" });
+      window.prompt("رمز ربط DragonHost (صالح لمدة 5 دقائق) — أدخله في تطبيق Hosting Agent:", data.code);
+    } catch (error) {
+      window.alert(error.message);
+    } finally {
+      button.disabled = false;
+      button.textContent = "＋ ربط جهاز الاستضافة";
+    }
+  });
+  area.appendChild(button);
 }
 function showAuth() { dashboard.hidden = true; authScreen.hidden = false; }
 
