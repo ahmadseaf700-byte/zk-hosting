@@ -245,7 +245,6 @@ const app = http.createServer(async (req, res) => {
         const edition = String(body.edition || "").trim().toLowerCase();
         const version = String(body.version || "1.21.11").trim();
         const software = String(body.software || "paper").trim().toLowerCase();
-        const subdomain = String(body.subdomain || "").trim().toLowerCase();
         const motd = String(body.motd || "").trim().slice(0, 120);
         const gamemode = String(body.gamemode || "survival").toLowerCase();
         const difficulty = String(body.difficulty || "normal").toLowerCase();
@@ -270,7 +269,7 @@ const app = http.createServer(async (req, res) => {
           gamemode, difficulty, maxPlayers, cracked, allowFlight, pvp,
           status: "offline", hostStatus: "not_paired", createdAt: new Date().toISOString()
         };
-                servers.set(server.id, server);
+        servers.set(server.id, server);
         await saveData();
         return sendJson(res, 201, { server: { ...server, userId: undefined } });
       } catch (error) {
