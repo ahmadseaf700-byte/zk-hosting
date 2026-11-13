@@ -59,6 +59,7 @@ function ensureAgentConnectButton() {
   area.appendChild(button);
 }
 function showAuth() { dashboard.hidden = true; authScreen.hidden = false; }
+setInterval(() => { if (!dashboard.hidden) loadServers(); }, 10_000);
 
 authForm.addEventListener("submit", async (event) => {
   event.preventDefault(); authSubmit.disabled = true;
