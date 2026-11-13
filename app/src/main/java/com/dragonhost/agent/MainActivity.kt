@@ -1,5 +1,9 @@
 package com.dragonhost.agent
 
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
@@ -55,7 +59,7 @@ class MainActivity : AppCompatActivity() {
             setPadding(0, 14, 0, 28)
         }, matchWrap())
         status = TextView(this).apply {
-            text = if (prefs.contains("token")) "يوجد حساب مربوط بهذا الجهاز" else "الجهاز غير مربوط"
+            text = if (prefs.contains("token")) "الجهاز مربوط — شغّل الاتصال" else "الجهاز غير مربوط"
             textSize = 15f
             setTextColor(0xFF7FE0A8.toInt())
             gravity = Gravity.CENTER
@@ -81,12 +85,23 @@ class MainActivity : AppCompatActivity() {
             text = "ربط الجهاز"
             setOnClickListener { pairDevice() }
         }
-        root.addView(pairButton, matchWrap().apply { topMargin = 18 })
+        root.addView(pairButton, matchWrap().apply { topMargin = 14 })
+        root.addView(Button(this).apply {
+            text = "تشغيل اتصال الاستضافة"
+            setOnClickListener { startAgentService() }
+        }, matchWrap())
+        root.addView(Button(this).apply {
+            text = "إيقاف الاتصال"
+            setOnClickListener {
+                stopService(Intent(this@MainActivity, AgentService::class.java))
+                status.text = "تم إيقاف اتصال الجهاز"
+            }
+        }, matchWrap())
         root.addView(TextView(this).apply {
-            text = "نسخة أولية: الربط فقط حالياً. تشغيل Minecraft يحتاج دمج Java Runtime واختباره على Android."
+            text = "مهم: هذه المرحلة تشغّل الاتصال والنبض مع الموقع فقط. محرك تشغيل Minecraft داخل APK لم يُدمج بعد، لذلك لن يبدأ إنشاء السيرفرات من الهاتف حالياً."
             textSize = 13f
             setTextColor(0xFFFFD18A.toInt())
-            setPadding(0, 28, 0, 0)
+            setPadding(0, 24, 0, 0)
             gravity = Gravity.CENTER
         }, matchWrap())
         setContentView(root)
@@ -96,6 +111,20 @@ class MainActivity : AppCompatActivity() {
         LinearLayout.LayoutParams.MATCH_PARENT,
         LinearLayout.LayoutParams.WRAP_CONTENT
     )
+
+    private fun startAgentService() {
+        if (!securePrefs().contains("token")) {
+            status.text = "اربط الجهاز أولاً باستخدام الرمز"
+            return
+        }
+        if (Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 70)
+        }
+        val intent = Intent(this, AgentService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent) else startService(intent)
+        status.text = "تم طلب تشغيل الاتصال بالخلفية"
+    }
 
     private fun pairDevice() {
         val code = codeInput.text.toString().trim()
@@ -119,7 +148,7 @@ class MainActivity : AppCompatActivity() {
                 connection.doOutput = true
                 connection.setRequestProperty("Content-Type", "application/json")
                 val payload = JSONObject().put("code", code)
-                    .put("deviceName", android.os.Build.MODEL).toString()
+                    .put("deviceName", Build.MODEL).toString()
                 connection.outputStream.use { it.write(payload.toByteArray(StandardCharsets.UTF_8)) }
                 val responseCode = connection.responseCode
                 val stream = if (responseCode in 200..299) connection.inputStream else connection.errorStream
@@ -133,9 +162,10 @@ class MainActivity : AppCompatActivity() {
                 securePrefs().edit().putString("token", token).putString("url", baseUrl).apply()
                 connection.disconnect()
                 runOnUiThread {
-                    status.text = "تم ربط الجهاز بنجاح ✅"
+                    status.text = "تم ربط الجهاز بنجاح — جارٍ تشغيل الاتصال"
                     codeInput.text.clear()
                     pairButton.isEnabled = true
+                    startAgentService()
                 }
             } catch (error: Exception) {
                 runOnUiThread {
