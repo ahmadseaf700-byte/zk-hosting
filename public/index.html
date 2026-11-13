@@ -4,38 +4,54 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#101827">
-  <title>DragonHost — لوحة التحكم</title>
+  <title>DragonHost — تسجيل الدخول</title>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
   <header class="topbar">
     <a class="brand" href="/"><span class="brand-mark">DH</span><span>DragonHost</span></a>
-    <span class="badge"><i></i> لوحة تجريبية</span>
+    <span class="badge"><i></i> استضافة Minecraft</span>
   </header>
   <main class="container">
-    <section class="hero">
-      <div><p class="eyebrow">استضافتك، بطريقتك</p><h1>لوحة تحكم سيرفرات <span>Minecraft</span></h1><p class="subtitle">جهّز إعدادات سيرفر Java أو Bedrock، ثم اربط جهاز الاستضافة لتشغيله فعلياً.</p></div>
-      <div class="hero-cube" aria-hidden="true">▦</div>
-    </section>
-    <section class="status-card">
-      <div class="status-copy"><span class="status-dot"></span><div><strong id="api-status">جارٍ فحص الاتصال...</strong><small>اتصال لوحة التحكم بالخادم</small></div></div>
-      <span class="version">الإصدار 0.2.0</span>
-    </section>
-    <section class="section-heading"><div><p class="eyebrow">إدارة الاستضافة</p><h2>سيرفراتي</h2></div><span class="count" id="server-count">0 سيرفر</span></section>
-    <section class="layout">
-      <div class="panel create-panel">
-        <h3>إنشاء سيرفر جديد</h3><p class="muted">اختر إصدار اللعبة ونوع السيرفر.</p>
-        <form id="create-form">
-          <label for="server-name">اسم السيرفر</label><input id="server-name" name="name" maxlength="32" minlength="2" placeholder="مثلاً: Survival" required>
-          <label for="edition">نسخة Minecraft</label><select id="edition" name="edition"><option value="java">Java Edition</option><option value="bedrock">Bedrock Edition</option></select>
-          <label for="software">نوع السيرفر (Java)</label><select id="software" name="software"><option value="paper">Paper</option><option value="purpur">Purpur</option><option value="vanilla">Vanilla</option></select>
-          <label for="version">الإصدار</label><input id="version" name="version" value="1.21.11" maxlength="20" required>
-          <button type="submit" class="primary">إنشاء إعدادات السيرفر</button><p id="form-message" class="form-message" role="status"></p>
+    <section id="auth-screen" class="auth-wrap">
+      <div class="auth-intro"><p class="eyebrow">أهلاً بك في DragonHost</p><h1>استضف عالمك، <span>وانطلق!</span></h1><p class="subtitle">سجّل دخولك أو أنشئ حساباً جديداً للوصول إلى لوحة تحكم سيرفراتك.</p></div>
+      <div class="panel auth-panel">
+        <div class="auth-tabs"><button id="login-tab" class="auth-tab active" type="button">تسجيل الدخول</button><button id="register-tab" class="auth-tab" type="button">إنشاء حساب</button></div>
+        <form id="auth-form">
+          <label for="auth-email">البريد الإلكتروني</label><input id="auth-email" name="email" type="email" autocomplete="email" placeholder="name@example.com" required maxlength="254">
+          <label for="auth-password">كلمة المرور</label><input id="auth-password" name="password" type="password" autocomplete="current-password" placeholder="8 أحرف على الأقل" minlength="8" maxlength="128" required>
+          <button id="auth-submit" class="primary" type="submit">تسجيل الدخول</button>
+          <p id="auth-message" class="form-message" role="status"></p>
         </form>
+        <p class="auth-hint">كلمة المرور تُخزّن بشكل مشفّر تجزئياً، ولا نعرضها أو نرسلها لأي مستخدم آخر.</p>
       </div>
-      <div class="panel servers-panel"><div class="panel-title"><h3>قائمة السيرفرات</h3><span class="live-label">مباشر</span></div><div id="server-list" class="server-list"><div class="empty-state"><div class="empty-icon">▧</div><strong>ما عندك سيرفرات لسه</strong><p>أنشئ أول سيرفر من النموذج.</p></div></div></div>
     </section>
-    <section class="notice"><strong>المرحلة الحالية</strong><p>هذه النسخة تحفظ إعدادات السيرفرات مؤقتاً داخل ذاكرة الخدمة. لا يتم تنزيل ملفات Minecraft أو تشغيل السيرفر بعد. الخطوة التالية هي بناء Agent على Android لربط الهاتف بلوحة التحكم وتشغيل السيرفرات عليه.</p></section>
+
+    <div id="dashboard" hidden>
+      <section class="hero">
+        <div><p class="eyebrow">استضافتك، بطريقتك</p><h1>لوحة تحكم سيرفرات <span>Minecraft</span></h1><p class="subtitle">جهّز إعدادات سيرفر Java أو Bedrock، ثم اربط جهاز الاستضافة لتشغيله فعلياً.</p></div>
+        <div class="hero-cube" aria-hidden="true">▦</div>
+      </section>
+      <section class="status-card">
+        <div class="status-copy"><span class="status-dot"></span><div><strong id="api-status">جارٍ فحص الاتصال...</strong><small id="signed-in-as">متصل بحسابك</small></div></div>
+        <button id="logout-button" class="logout-button" type="button">تسجيل الخروج</button>
+      </section>
+      <section class="section-heading"><div><p class="eyebrow">إدارة الاستضافة</p><h2>سيرفراتي</h2></div><span class="count" id="server-count">0 سيرفر</span></section>
+      <section class="layout">
+        <div class="panel create-panel">
+          <h3>إنشاء سيرفر جديد</h3><p class="muted">اختر إصدار اللعبة ونوع السيرفر.</p>
+          <form id="create-form">
+            <label for="server-name">اسم السيرفر</label><input id="server-name" name="name" maxlength="32" minlength="2" placeholder="مثلاً: Survival" required>
+            <label for="edition">نسخة Minecraft</label><select id="edition" name="edition"><option value="java">Java Edition</option><option value="bedrock">Bedrock Edition</option></select>
+            <label for="software">نوع السيرفر (Java)</label><select id="software" name="software"><option value="paper">Paper</option><option value="purpur">Purpur</option><option value="vanilla">Vanilla</option></select>
+            <label for="version">الإصدار</label><input id="version" name="version" value="1.21.11" maxlength="20" required>
+            <button type="submit" class="primary">إنشاء إعدادات السيرفر</button><p id="form-message" class="form-message" role="status"></p>
+          </form>
+        </div>
+        <div class="panel servers-panel"><div class="panel-title"><h3>قائمة السيرفرات</h3><span class="live-label">مباشر</span></div><div id="server-list" class="server-list"><div class="empty-state">جارٍ التحميل...</div></div></div>
+      </section>
+      <section class="notice"><strong>المرحلة الحالية</strong><p>تسجيل الدخول وإنشاء الحساب جاهزان. إعدادات السيرفرات تُحفظ في ملف البيانات؛ لضمان بقائها بعد إعادة نشر Render يجب ربط Persistent Disk وتعيين DATA_DIR إلى /var/data. تشغيل Minecraft الفعلي يحتاج ربط جهاز الاستضافة.</p></section>
+    </div>
   </main>
   <footer>© 2026 DragonHost <span>صُنع لمجتمع Minecraft</span></footer>
   <script src="/app.js"></script>
