@@ -214,7 +214,7 @@ async function main() {
     try {
       await request(config, "/api/agent/heartbeat", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ deviceName: os.hostname(), platform: os.platform(), agentVersion: "0.1.0" })
+        body: JSON.stringify({ deviceName: os.hostname(), platform: os.platform(), agentVersion: "0.1.0", runningServers: [...children.entries()].filter(([, child]) => child.exitCode === null).map(([id]) => id) })
       });
       const data = await request(config, "/api/agent/tasks");
       for (const task of data.tasks || []) {
