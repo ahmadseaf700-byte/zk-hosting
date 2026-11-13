@@ -332,7 +332,7 @@ const app = http.createServer(async (req, res) => {
         const server = servers.get(task.serverId);
         if (server) {
           if (task.type === "provision") {
-            server.status = success ? "offline" : "error";
+            server.status = success && body.running === true ? "online" : success ? "offline" : "error";
             server.hostStatus = success ? "ready" : "provision_failed";
             if (body.port) server.port = Number(body.port);
             if (body.address) server.hostAddress = String(body.address).slice(0, 120);
@@ -386,7 +386,7 @@ const app = http.createServer(async (req, res) => {
       const agent = [...agents.values()].find(item => item.userId === user.id && agentIsOnline(item));
       if (!agent) return sendJson(res, 503, { error: "جهاز الاستضافة غير متصل. اربط Hosting Agent أولاً.", code: "AGENT_NOT_CONNECTED" });
       const action = actionMatch[2];
-      const task = enqueueTask(agent, target, action);
+      const task = enqueueTask(agent, target, action, { server: { id: target.id, name: target.name, subdomain: target.subdomain, motd: target.motd, edition: target.edition, software: target.software, version: target.version, gamemode: target.gamemode, difficulty: target.difficulty, maxPlayers: target.maxPlayers, cracked: target.cracked, allowFlight: target.allowFlight, pvp: target.pvp, eulaAccepted: target.eulaAccepted } });
       target.status = action === "stop" ? "stopping" : action === "start" ? "starting" : "restarting";
       target.updatedAt = new Date().toISOString();
       saveData().catch(error => console.error("Task save error:", error));
