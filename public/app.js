@@ -138,8 +138,27 @@ $("subdomain").addEventListener("input", () => {
 });
 $("motd").addEventListener("input", () => renderMotd($("motd").value));
 function renderMotd(text) {
-  const safe = escapeHtml(text.replace(/§[0-9a-fk-or]/gi, ""));
-  $("motd-preview-text").innerHTML = safe || "رسالة السيرفر ستظهر هنا";
+  const palette = { "0":"#000000","1":"#0000aa","2":"#00aa00","3":"#00aaaa","4":"#aa0000","5":"#aa00aa","6":"#ffaa00","7":"#aaaaaa","8":"#555555","9":"#5555ff","a":"#55ff55","b":"#55ffff","c":"#ff5555","d":"#ff55ff","e":"#ffff55","f":"#ffffff" };
+  let color = "#55ff55", bold = false, italic = false, underline = false, html = "", buffer = "";
+  const flush = () => {
+    if (!buffer) return;
+    html += '<span style="color:' + color + ';' + (bold ? "font-weight:800;" : "") + (italic ? "font-style:italic;" : "") + (underline ? "text-decoration:underline;" : "") + '">' + escapeHtml(buffer) + '</span>';
+    buffer = "";
+  };
+  const input = String(text || "");
+  for (let i = 0; i < input.length; i++) {
+    if (input[i] === "§" && i + 1 < input.length) {
+      const code = input[++i].toLowerCase();
+      if (palette[code]) { flush(); color = palette[code]; bold = false; italic = false; underline = false; }
+      else if (code === "l") { flush(); bold = true; }
+      else if (code === "o") { flush(); italic = true; }
+      else if (code === "n") { flush(); underline = true; }
+      else if (code === "r") { flush(); color = "#55ff55"; bold = false; italic = false; underline = false; }
+      else buffer += "§" + code;
+    } else buffer += input[i];
+  }
+  flush();
+  $("motd-preview-text").innerHTML = html || "رسالة السيرفر ستظهر هنا";
 }
 document.querySelectorAll('input[name="edition"]').forEach(radio => radio.addEventListener("change", () => {
   document.querySelectorAll(".choice-card").forEach(card => card.classList.toggle("selected", card.querySelector("input").checked));
