@@ -89,12 +89,7 @@ class AgentService : Service() {
     }
 
     private fun notification(message: String): Notification {
-        val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            Notification.Builder(this, channelId)
-        } else {
-            @Suppress("DEPRECATION")
-            Notification.Builder(this)
-        }
+        val builder = Notification.Builder(this, channelId)
         return builder
             .setContentTitle("DragonHost Agent")
             .setContentText(message)
