@@ -299,6 +299,8 @@ const app = http.createServer(async (req, res) => {
         if (body.deviceName) agent.name = String(body.deviceName).trim().slice(0, 48);
         if (body.platform) agent.platform = String(body.platform).slice(0, 40);
         if (body.agentVersion) agent.agentVersion = String(body.agentVersion).slice(0, 32);
+        const runningIds = new Set(Array.isArray(body.runningServers) ? body.runningServers.filter(id => typeof id === "string") : []);
+        for (const server of servers.values()) if (server.userId === agent.userId && server.hostStatus === "ready") server.status = runningIds.has(server.id) ? "online" : "offline";
         let queuedProvisioning = 0;
         for (const server of servers.values()) {
           if (server.userId !== agent.userId || server.hostStatus !== "not_paired" || server.eulaAccepted !== true) continue;
