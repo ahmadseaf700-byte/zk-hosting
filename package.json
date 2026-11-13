@@ -1,0 +1,12 @@
+{
+  "name": "zk-hosting",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Minecraft hosting control panel with Android-host architecture",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
