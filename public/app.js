@@ -89,10 +89,10 @@ async function loadServers() {
       return;
     }
     list.innerHTML = servers.map(s => `<article class="server-card">
-      <div class="server-card-top"><span class="server-cube">▦</span><span class="status-pill pending">غير متصل</span></div>
-      <h3>${escapeHtml(s.name)}</h3><p class="server-address">${escapeHtml(s.subdomain || "لم يحدد عنوان")} .dragonhost.net</p>
+      <div class="server-card-top"><span class="server-cube">▦</span><span class="status-pill ${s.status === "online" ? "online" : s.status === "error" ? "error" : "pending"}">${s.status === "online" ? "يعمل" : s.status === "starting" ? "جارٍ التشغيل" : s.status === "stopping" ? "جارٍ الإيقاف" : s.status === "restarting" ? "جارٍ إعادة التشغيل" : s.status === "error" ? "خطأ" : "متوقف"}</span></div>
+      <h3>${escapeHtml(s.name)}</h3><p class="server-address">العنوان المقترح: ${escapeHtml(s.subdomain || "لم يحدد عنوان")}.dragonhost.net</p>
       <div class="server-tags"><span>${escapeHtml(s.edition.toUpperCase())}</span><span>${escapeHtml(s.software)}</span><span>${escapeHtml(s.version)}</span></div>
-      <div class="server-card-bottom"><small>بانتظار جهاز الاستضافة</small><button type="button" class="text-button" data-manage-server="${escapeHtml(s.id)}">إدارة السيرفر ⚙</button></div>
+      <div class="server-card-bottom"><small>${s.hostStatus === "ready" ? (s.status === "online" ? "جهاز الاستضافة متصل" : "السيرفر جاهز للتشغيل") : s.hostStatus === "provisioning" ? "جارٍ تجهيز ملفات Minecraft" : s.hostStatus === "provision_failed" ? "فشل تجهيز السيرفر" : "اربط جهاز الاستضافة"}</small><button type="button" class="text-button" data-manage-server="${escapeHtml(s.id)}">إدارة السيرفر ⚙</button></div>
     </article>`).join("");
     list.querySelectorAll("[data-manage-server]").forEach(btn => btn.addEventListener("click", () => openServerManager(btn.dataset.manageServer)));
   } catch (error) { list.innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`; }
