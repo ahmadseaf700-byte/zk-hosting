@@ -287,7 +287,7 @@ const app = http.createServer(async (req, res) => {
     }
   }
 
-  if (url.pathname.startsWith("/api/agent/") && url.pathname !== "/api/agent/pair-code" && url.pathname !== "/api/agent/pair") {
+  if (url.pathname.startsWith("/api/agent/") && !["/api/agent/pair-code", "/api/agent/pair", "/api/agent/status"].includes(url.pathname)) {
     const agent = getAgent(req);
     if (!agent) return sendJson(res, 401, { error: "رمز جهاز الاستضافة غير صالح." });
 
@@ -340,6 +340,8 @@ const app = http.createServer(async (req, res) => {
             server.status = success ? "online" : "error";
           } else if (task.type === "stop") {
             server.status = success ? "offline" : "error";
+          } else if (task.type === "restart") {
+            server.status = success ? "online" : "error";
           }
           server.updatedAt = new Date().toISOString();
         }
