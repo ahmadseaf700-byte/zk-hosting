@@ -454,7 +454,7 @@ const app = http.createServer(async (req, res) => {
         const agent = [...agents.values()].find(item => item.userId === user.id && agentIsOnline(item));
         if (agent) {
           server.hostStatus = "provisioning";
-          const task = enqueueTask(agent, server, "provision", { edition: server.edition, software: server.software, version: server.version });
+          const task = enqueueTask(agent, server, "provision", { server: { id: server.id, name: server.name, subdomain: server.subdomain, motd: server.motd, edition: server.edition, software: server.software, version: server.version, gamemode: server.gamemode, difficulty: server.difficulty, maxPlayers: server.maxPlayers, cracked: server.cracked, allowFlight: server.allowFlight, pvp: server.pvp, eulaAccepted: server.eulaAccepted } });
           server.provisionTaskId = task.id;
         }
         await saveData();
