@@ -6,6 +6,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const os = require("node:os");
+const net = require("node:net");
 const { spawn, execFile } = require("node:child_process");
 const { promisify } = require("node:util");
 const { setTimeout: delay } = require("node:timers/promises");
@@ -105,6 +106,24 @@ function properties(server, port) {
     "enable-rcon=false", "view-distance=6", "simulation-distance=4"
   ].join("\n") + "\n";
 }
+async function findFreePort() {
+  for (let port = 25565; port <= 25650; port++) {
+    const available = await new Promise(resolve => {
+      const probe = net.createServer();
+      probe.once("error", () => resolve(false));
+      probe.listen(port, "0.0.0.0", () => probe.close(() => resolve(true)));
+    });
+    if (available) return port;
+  }
+  throw new Error("لا توجد منافذ متاحة ضمن المجال 25565-25650.");
+}
+function existingPort(dir) {
+  try {
+    const text = fs.readFileSync(path.join(dir, "server.properties"), "utf8");
+    const match = text.match(/^server-port=(\\d+)$/m);
+    return match ? Number(match[1]) : 25565;
+  } catch { return 25565; }
+}
 async function javaCheck() {
   try { await execFileAsync("java", ["-version"]); }
   catch { throw new Error("Java غير مثبت. في Termux نفّذ: pkg install openjdk-21"); }
@@ -150,13 +169,12 @@ async function execute(task) {
     if (server.eulaAccepted !== true) throw new Error("لم يتم تأكيد موافقة Minecraft EULA.");
     await resolveJar(server, dir);
     await fs.promises.writeFile(path.join(dir, "eula.txt"), "eula=true\n", { mode: 0o600 });
-    const port = 25565;
+    const port = await findFreePort();
     await fs.promises.writeFile(path.join(dir, "server.properties"), properties(server, port));
-    const result = await launch(server, dir, port);
-    return { ...result, address: `${server.subdomain}.dragonhost.net` };
+    return await launch(server, dir, port);
   }
   if (task.type === "start") {
-    const result = await launch(server, dir, 25565);
+    const result = await launch(server, dir, existingPort(dir));
     return result;
   }
   if (task.type === "stop") {
