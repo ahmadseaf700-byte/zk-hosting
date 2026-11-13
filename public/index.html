@@ -91,8 +91,8 @@
               </div>
               <div class="wizard-step" data-step="4" hidden>
                 <h3>جاهزون لإنشاء عالمك؟</h3><p class="muted">راجع ملخص الإعدادات قبل الحفظ.</p><div id="review-card" class="review-card"></div>
-                <div class="provision-box"><div class="provision-head"><b>تجهيز إعدادات السيرفر</b><span id="provision-percent">0%</span></div><div class="progress-track"><i id="provision-bar"></i></div><p id="provision-status">سيتم حفظ إعدادات السيرفر في حسابك.</p></div>
-                <p class="field-hint">ملاحظة: هذه الخطوة تنشئ سجل الإعدادات فقط. تحميل ملفات Minecraft وتشغيلها سيبدأ بعد ربط جهاز الاستضافة.</p>
+                <label class="toggle-row" style="margin:14px 0"><span>أوافق على اتفاقية Minecraft EULA وأسمح بتفعيلها لهذا السيرفر</span><input id="eula-accepted" type="checkbox" required></label><div class="provision-box"><div class="provision-head"><b>تجهيز إعدادات السيرفر</b><span id="provision-percent">0%</span></div><div class="progress-track"><i id="provision-bar"></i></div><p id="provision-status">سيتم حفظ إعدادات السيرفر في حسابك.</p></div>
+                <p class="field-hint">بعد ربط Hosting Agent، سيحمّل جهازك ملفات السيرفر ويجهّزها. تشغيل Bedrock على Android غير مدعوم في هذه المرحلة.</p>
               </div>
               <div class="wizard-actions"><button id="wizard-back" class="secondary" type="button" hidden>رجوع</button><span class="wizard-spacer"></span><button id="wizard-next" class="primary compact" type="button">التالي ←</button><button id="wizard-create" class="primary compact" type="submit" hidden>إنشاء السيرفر</button></div>
               <p id="wizard-message" class="form-message" role="status"></p>
