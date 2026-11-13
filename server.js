@@ -262,6 +262,7 @@ const app = http.createServer(async (req, res) => {
   }
 
   if (req.method === "POST" && url.pathname === "/api/agent/pair") {
+    if (isRateLimited(req)) return sendJson(res, 429, { error: "محاولات ربط كثيرة. انتظر 15 دقيقة ثم حاول مجدداً." });
     try {
       const body = await readBody(req);
       const code = String(body.code || "");
