@@ -54,7 +54,8 @@ function escapeHtml(value) {
 }
 async function loadServers() {
   try {
-    const data = await api("/api/servers"), servers = data.servers || [];\n    cachedServers = servers;
+    const data = await api("/api/servers"), servers = data.servers || [];
+    cachedServers = servers;
     $("server-count").textContent = servers.length;
     if (!servers.length) {
       list.innerHTML = '<div class="empty-state empty-wide"><div class="empty-icon">🐉</div><b>عالمك الأول بانتظارك</b><p>أنشئ سيرفرك الأول واضبطه بالطريقة التي تحبها.</p><button class="primary compact" data-go-create type="button">إنشاء سيرفر جديد</button></div>';
@@ -281,7 +282,8 @@ $("manager-delete").addEventListener("click", async () => {
   } catch (error) { $("manager-message").textContent = error.message; }
   finally { button.disabled = false; }
 });
-\n(async function init() {
+
+(async function init() {
   try { const data = await api("/api/auth/me"); showDashboard(data.user); }
   catch { showAuth(); }
 })();
