@@ -237,6 +237,12 @@ const app = http.createServer(async (req, res) => {
       return sendJson(res, 200, { servers: ownedServers, note: "حالة السيرفرات تجريبية حتى ربط جهاز الاستضافة." });
     }
 
+    const actionMatch = url.pathname.match(/^\/api\/servers\/([0-9a-f-]+)\/(start|stop|restart)$/i);
+    if (actionMatch && req.method === "POST") {
+      const target = servers.get(actionMatch[1]);
+      if (!target || target.userId !== user.id) return sendJson(res, 404, { error: "السيرفر غير موجود." });
+      return sendJson(res, 503, { error: "جهاز الاستضافة غير متصل. لم يتم تنفيذ الأمر.", code: "AGENT_NOT_CONNECTED" });
+    }
     const serverMatch = url.pathname.match(/^\/api\/servers\/([0-9a-f-]+)$/i);
     if (serverMatch) {
       const server = servers.get(serverMatch[1]);
@@ -258,7 +264,6 @@ const app = http.createServer(async (req, res) => {
         } catch (error) { console.error("Server update error:", error); return sendJson(res, 500, { error: "تعذر حفظ الإعدادات." }); }
       }
       if (req.method === "DELETE") { servers.delete(server.id); await saveData(); return sendJson(res, 200, { ok: true }); }
-      if (req.method === "POST" && /\/(start|stop|restart)$/.test(url.pathname)) return sendJson(res, 503, { error: "جهاز الاستضافة غير متصل. لم يتم تنفيذ الأمر.", code: "AGENT_NOT_CONNECTED" });
       return sendJson(res, 405, { error: "Method not allowed" });
     }
 
