@@ -237,6 +237,31 @@ const app = http.createServer(async (req, res) => {
       return sendJson(res, 200, { servers: ownedServers, note: "حالة السيرفرات تجريبية حتى ربط جهاز الاستضافة." });
     }
 
+    const serverMatch = url.pathname.match(/^\/api\/servers\/([0-9a-f-]+)$/i);
+    if (serverMatch) {
+      const server = servers.get(serverMatch[1]);
+      if (!server || server.userId !== user.id) return sendJson(res, 404, { error: "السيرفر غير موجود." });
+      if (req.method === "PATCH") {
+        try {
+          const body = await readBody(req);
+          const allowed = ["name", "motd", "gamemode", "difficulty", "maxPlayers", "cracked", "allowFlight", "pvp"];
+          const next = { ...server };
+          if (body.name !== undefined) { const value = String(body.name).trim(); if (value.length < 2 || value.length > 32) return sendJson(res, 400, { error: "اسم السيرفر يجب أن يكون بين حرفين و32 حرفاً." }); next.name = value; }
+          if (body.motd !== undefined) next.motd = String(body.motd).trim().slice(0, 120);
+          if (body.gamemode !== undefined) { if (!["survival", "creative", "adventure"].includes(body.gamemode)) return sendJson(res, 400, { error: "وضع اللعب غير صالح." }); next.gamemode = body.gamemode; }
+          if (body.difficulty !== undefined) { if (!["peaceful", "easy", "normal", "hard"].includes(body.difficulty)) return sendJson(res, 400, { error: "الصعوبة غير صالحة." }); next.difficulty = body.difficulty; }
+          if (body.maxPlayers !== undefined) { const value = Number(body.maxPlayers); if (!Number.isInteger(value) || value < 1 || value > 100) return sendJson(res, 400, { error: "عدد اللاعبين يجب أن يكون بين 1 و100." }); next.maxPlayers = value; }
+          for (const key of ["cracked", "allowFlight", "pvp"]) if (body[key] !== undefined) next[key] = body[key] === true;
+          next.updatedAt = new Date().toISOString();
+          servers.set(server.id, next); await saveData();
+          return sendJson(res, 200, { server: { ...next, userId: undefined } });
+        } catch (error) { console.error("Server update error:", error); return sendJson(res, 500, { error: "تعذر حفظ الإعدادات." }); }
+      }
+      if (req.method === "DELETE") { servers.delete(server.id); await saveData(); return sendJson(res, 200, { ok: true }); }
+      if (req.method === "POST" && /\/(start|stop|restart)$/.test(url.pathname)) return sendJson(res, 503, { error: "جهاز الاستضافة غير متصل. لم يتم تنفيذ الأمر.", code: "AGENT_NOT_CONNECTED" });
+      return sendJson(res, 405, { error: "Method not allowed" });
+    }
+
     if (req.method === "POST" && url.pathname === "/api/servers") {
       try {
         const body = await readBody(req);
