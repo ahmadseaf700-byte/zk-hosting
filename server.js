@@ -376,7 +376,7 @@ const app = http.createServer(async (req, res) => {
 
     if (req.method === "GET" && url.pathname === "/api/servers") {
       const ownedServers = [...servers.values()].filter(server => server.userId === user.id);
-      return sendJson(res, 200, { servers: ownedServers, note: "حالة السيرفرات تجريبية حتى ربط جهاز الاستضافة." });
+      return sendJson(res, 200, { servers: ownedServers, note: "حالة السيرفرات تعتمد على آخر اتصال مؤكد من Hosting Agent." });
     }
 
     const actionMatch = url.pathname.match(/^\/api\/servers\/([0-9a-f-]+)\/(start|stop|restart)$/i);
@@ -431,7 +431,9 @@ const app = http.createServer(async (req, res) => {
         const cracked = body.cracked === true;
         const allowFlight = body.allowFlight === true;
         const pvp = body.pvp !== false;
+        const eulaAccepted = body.eulaAccepted === true;
 
+        if (!eulaAccepted) return sendJson(res, 400, { error: "يجب الموافقة على Minecraft EULA أولاً." });
         if (name.length < 2 || name.length > 32) return sendJson(res, 400, { error: "اسم السيرفر يجب أن يكون بين حرفين و32 حرفاً." });
         if (!/^[a-z0-9](?:[a-z0-9-]{0,22}[a-z0-9])?$/.test(subdomain)) return sendJson(res, 400, { error: "عنوان السيرفر غير صحيح." });
         if ([...servers.values()].some(server => server.subdomain === subdomain)) return sendJson(res, 409, { error: "هذا العنوان مستخدم، اختر عنواناً آخر." });
@@ -445,7 +447,7 @@ const app = http.createServer(async (req, res) => {
         const server = {
           id: crypto.randomUUID(), userId: user.id, name, subdomain, motd, edition, version,
           software: edition === "bedrock" ? "bedrock" : software,
-          gamemode, difficulty, maxPlayers, cracked, allowFlight, pvp,
+          gamemode, difficulty, maxPlayers, cracked, allowFlight, pvp, eulaAccepted,
           status: "offline", hostStatus: "not_paired", createdAt: new Date().toISOString()
         };
         servers.set(server.id, server);
