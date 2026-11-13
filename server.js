@@ -299,8 +299,16 @@ const app = http.createServer(async (req, res) => {
         if (body.deviceName) agent.name = String(body.deviceName).trim().slice(0, 48);
         if (body.platform) agent.platform = String(body.platform).slice(0, 40);
         if (body.agentVersion) agent.agentVersion = String(body.agentVersion).slice(0, 32);
+        let queuedProvisioning = 0;
+        for (const server of servers.values()) {
+          if (server.userId !== agent.userId || server.hostStatus !== "not_paired" || server.eulaAccepted !== true) continue;
+          const task = enqueueTask(agent, server, "provision", { server: { id: server.id, name: server.name, subdomain: server.subdomain, motd: server.motd, edition: server.edition, software: server.software, version: server.version, gamemode: server.gamemode, difficulty: server.difficulty, maxPlayers: server.maxPlayers, cracked: server.cracked, allowFlight: server.allowFlight, pvp: server.pvp, eulaAccepted: server.eulaAccepted } });
+          server.hostStatus = "provisioning";
+          server.provisionTaskId = task.id;
+          queuedProvisioning++;
+        }
         await saveData();
-        return sendJson(res, 200, { ok: true, serverCount: [...servers.values()].filter(s => s.userId === agent.userId).length });
+        return sendJson(res, 200, { ok: true, queuedProvisioning, serverCount: [...servers.values()].filter(s => s.userId === agent.userId).length });
       } catch { return sendJson(res, 400, { error: "بيانات النبض غير صالحة." }); }
     }
 
