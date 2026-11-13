@@ -161,7 +161,7 @@ const app = http.createServer(async (req, res) => {
   const url = new URL(req.url, "http://localhost");
 
   if (req.method === "GET" && url.pathname === "/api/health") {
-    return sendJson(res, 200, { ok: true, service: "dragonhost", version: "0.3.0", message: "DragonHost API تعمل" });
+    return sendJson(res, 200, { ok: true, service: "dragonhost", version: "0.4.0", message: "DragonHost API تعمل" });
   }
 
   if (req.method === "POST" && ["/api/auth/register", "/api/auth/login"].includes(url.pathname)) {
