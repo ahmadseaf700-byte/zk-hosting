@@ -202,7 +202,7 @@ function formPayload() {
     motd: fd.get("motd") || "", edition, software: edition === "bedrock" ? "bedrock" : fd.get("software"),
     version: fd.get("version"), gamemode: fd.get("gamemode"), difficulty: fd.get("difficulty"),
     maxPlayers: Number(fd.get("maxPlayers")), cracked: fd.has("cracked"),
-    allowFlight: fd.has("allowFlight"), pvp: fd.has("pvp")
+    allowFlight: fd.has("allowFlight"), pvp: fd.has("pvp"), eulaAccepted: $("eula-accepted").checked
   };
 }
 function renderReview() {
@@ -213,6 +213,7 @@ function renderReview() {
 wizardForm.addEventListener("submit", async event => {
   event.preventDefault();
   if (currentStep !== 4 || !validateIdentity()) return;
+  if (!$("eula-accepted").checked) { $("wizard-message").textContent = "يجب الموافقة على Minecraft EULA قبل إنشاء السيرفر."; return; }
   const button = $("wizard-create"); button.disabled = true;
   $("wizard-message").textContent = "جارٍ حفظ إعدادات السيرفر...";
   $("provision-status").textContent = "التحقق من الإعدادات وحفظها...";
