@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101827">
+  <title> ZK Hosting — لوحة التحكم</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/"><span class="brand-mark">ZK</span><span>ZK Hosting</span></a>
+    <span class="badge"><i></i> لوحة تجريبية</span>
+  </header>
+
+  <main class="container">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">استضافتك، بطريقتك</p>
+        <h1>لوحة تحكم سيرفرات <span>Minecraft</span></h1>
+        <p class="subtitle">أنشئ سيرفرك وتابع حالته. تشغيل السيرفرات من الهاتف سيُضاف بعد ربط تطبيق Android.</p>
+      </div>
+      <div class="hero-cube" aria-hidden="true">▦</div>
+    </section>
+
+    <section class="status-card">
+      <div class="status-copy">
+        <span class="status-dot"></span>
+        <div><strong id="api-status">جارٍ فحص الاتصال...</strong><small>اتصال لوحة التحكم بالخادم</small></div>
+      </div>
+      <span class="version">الإصدار 0.1.0</span>
+    </section>
+
+    <section class="section-heading">
+      <div><p class="eyebrow">إدارة الاستضافة</p><h2>سيرفراتي</h2></div>
+      <span class="count" id="server-count">0 سيرفر</span>
+    </section>
+
+    <section class="layout">
+      <div class="panel create-panel">
+        <h3>إنشاء سيرفر جديد</h3>
+        <p class="muted">أضف إعدادات سيرفرك للوحة التحكم.</p>
+        <form id="create-form">
+          <label for="server-name">اسم السيرفر</label>
+          <input id="server-name" name="name" maxlength="32" minlength="2" placeholder="مثلاً: Survival" required>
+          <label for="edition">نسخة Minecraft</label>
+          <select id="edition" name="edition">
+            <option value="java">Java Edition</option>
+            <option value="bedrock">Bedrock Edition</option>
+          </select>
+          <label for="version">الإصدار</label>
+          <input id="version" name="version" value="1.21.11" maxlength="20" required>
+          <button type="submit" class="primary">إنشاء السيرفر</button>
+          <p id="form-message" class="form-message" role="status"></p>
+        </form>
+      </div>
+
+      <div class="panel servers-panel">
+        <div class="panel-title"><h3>قائمة السيرفرات</h3><span class="live-label">مباشر</span></div>
+        <div id="server-list" class="server-list">
+          <div class="empty-state"><div class="empty-icon">▧</div><strong>ما عندك سيرفرات لسه</strong><p>أنشئ أول سيرفر من النموذج.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="notice">
+      <strong>ملاحظة مهمة</strong>
+      <p>هذه أول نسخة من لوحة التحكم. إنشاء السيرفر هنا يسجل إعداداته تجريبياً فقط؛ لم يتم بعد ربط هاتف Android لتشغيل Minecraft فعلياً، كما أن البيانات الحالية تُحفظ مؤقتاً في ذاكرة الخدمة.</p>
+    </section>
+  </main>
+  <footer>© 2026 ZK Hosting <span>صُنع لمجتمع Minecraft</span></footer>
+  <script src="/app.js"></script>
+</body>
+</html>
