@@ -16,8 +16,8 @@ async function loadServers() {
     list.innerHTML = servers.map(server => `
       <article class="server-item">
         <div><div class="server-name">${escapeHtml(server.name)}</div>
-        <div class="server-meta">${server.edition === "java" ? "Java" : "Bedrock"} · ${escapeHtml(server.version)}</div></div>
-        <span class="offline">غير متصل</span>
+        <div class="server-meta">${server.edition === "java" ? "Java" : "Bedrock"} · ${escapeHtml(server.software)} · ${escapeHtml(server.version)}</div></div>
+        <span class="offline">بانتظار جهاز الاستضافة</span>
       </article>`).join("");
   } catch {
     list.innerHTML = '<div class="empty-state">تعذر تحميل السيرفرات.</div>';
@@ -45,7 +45,7 @@ form.addEventListener("submit", async event => {
   event.preventDefault();
   const button = form.querySelector("button");
   button.disabled = true;
-  message.textContent = "جارٍ إنشاء السيرفر...";
+  message.textContent = "جارٍ إنشاء إعدادات السيرفر...";
   const payload = Object.fromEntries(new FormData(form).entries());
   try {
     const response = await fetch("/api/servers", {
@@ -55,7 +55,7 @@ form.addEventListener("submit", async event => {
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "حدث خطأ.");
-    message.textContent = "تمت إضافة السيرفر إلى القائمة التجريبية.";
+    message.textContent = "تم إنشاء إعدادات السيرفر بنجاح. التشغيل الفعلي سيُفعّل بعد ربط جهاز الاستضافة.";
     form.reset();
     document.getElementById("version").value = "1.21.11";
     await loadServers();
