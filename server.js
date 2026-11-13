@@ -245,17 +245,18 @@ const app = http.createServer(async (req, res) => {
         const edition = String(body.edition || "").trim().toLowerCase();
         const version = String(body.version || "1.21.11").trim();
         const software = String(body.software || "paper").trim().toLowerCase();
-        const motd = String(body.motd || "").slice(0, 120);
+        const subdomain = String(body.subdomain || "").trim().toLowerCase();
+        const motd = String(body.motd || "").trim().slice(0, 120);
         const gamemode = String(body.gamemode || "survival").toLowerCase();
         const difficulty = String(body.difficulty || "normal").toLowerCase();
-        const maxPlayers = Number(body.maxPlayers || 20);
+        const maxPlayers = Number(body.maxPlayers ?? 20);
         const cracked = body.cracked === true;
         const allowFlight = body.allowFlight === true;
         const pvp = body.pvp !== false;
 
         if (name.length < 2 || name.length > 32) return sendJson(res, 400, { error: "اسم السيرفر يجب أن يكون بين حرفين و32 حرفاً." });
-        if (!/^[a-z0-9](?:[a-z0-9-]{0,22}[a-z0-9])?$/.test(subdomain)) return sendJson(res, 400, { error: "عنوان السيرفر غير صالح." });
-        if ([...servers.values()].some(item => item.subdomain === subdomain)) return sendJson(res, 409, { error: "عنوان السيرفر مستخدم بالفعل." });
+        if (!/^[a-z0-9](?:[a-z0-9-]{0,22}[a-z0-9])?$/.test(subdomain)) return sendJson(res, 400, { error: "عنوان السيرفر غير صحيح." });
+        if ([...servers.values()].some(server => server.subdomain === subdomain)) return sendJson(res, 409, { error: "هذا العنوان مستخدم، اختر عنواناً آخر." });
         if (!["java", "bedrock"].includes(edition)) return sendJson(res, 400, { error: "اختر Java أو Bedrock." });
         if (!["vanilla", "paper", "purpur"].includes(software)) return sendJson(res, 400, { error: "نوع السيرفر غير مدعوم حالياً." });
         if (!/^\d{1,2}\.\d{1,2}(\.\d{1,2})?$/.test(version)) return sendJson(res, 400, { error: "صيغة الإصدار غير صحيحة." });
@@ -264,13 +265,12 @@ const app = http.createServer(async (req, res) => {
         if (!Number.isInteger(maxPlayers) || maxPlayers < 1 || maxPlayers > 100) return sendJson(res, 400, { error: "عدد اللاعبين يجب أن يكون بين 1 و100." });
 
         const server = {
-          id: crypto.randomUUID(), userId: user.id, name, subdomain, motd,
-          edition, version, gamemode, difficulty, maxPlayers, cracked,
-          allowFlight, pvp,
+          id: crypto.randomUUID(), userId: user.id, name, subdomain, motd, edition, version,
           software: edition === "bedrock" ? "bedrock" : software,
+          gamemode, difficulty, maxPlayers, cracked, allowFlight, pvp,
           status: "offline", hostStatus: "not_paired", createdAt: new Date().toISOString()
         };
-        servers.set(server.id, server);
+                servers.set(server.id, server);
         await saveData();
         return sendJson(res, 201, { server: { ...server, userId: undefined } });
       } catch (error) {
