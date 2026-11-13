@@ -14,27 +14,28 @@
   </header>
   <main class="container">
     <section class="hero">
-      <div><p class="eyebrow">استضافتك، بطريقتك</p><h1>لوحة تحكم سيرفرات <span>Minecraft</span></h1><p class="subtitle">أنشئ سيرفرك وتابع حالته. تشغيل السيرفرات من الهاتف سيُضاف بعد ربط تطبيق Android.</p></div>
+      <div><p class="eyebrow">استضافتك، بطريقتك</p><h1>لوحة تحكم سيرفرات <span>Minecraft</span></h1><p class="subtitle">جهّز إعدادات سيرفر Java أو Bedrock، ثم اربط جهاز الاستضافة لتشغيله فعلياً.</p></div>
       <div class="hero-cube" aria-hidden="true">▦</div>
     </section>
     <section class="status-card">
       <div class="status-copy"><span class="status-dot"></span><div><strong id="api-status">جارٍ فحص الاتصال...</strong><small>اتصال لوحة التحكم بالخادم</small></div></div>
-      <span class="version">الإصدار 0.1.0</span>
+      <span class="version">الإصدار 0.2.0</span>
     </section>
     <section class="section-heading"><div><p class="eyebrow">إدارة الاستضافة</p><h2>سيرفراتي</h2></div><span class="count" id="server-count">0 سيرفر</span></section>
     <section class="layout">
       <div class="panel create-panel">
-        <h3>إنشاء سيرفر جديد</h3><p class="muted">أضف إعدادات سيرفرك للوحة التحكم.</p>
+        <h3>إنشاء سيرفر جديد</h3><p class="muted">اختر إصدار اللعبة ونوع السيرفر.</p>
         <form id="create-form">
           <label for="server-name">اسم السيرفر</label><input id="server-name" name="name" maxlength="32" minlength="2" placeholder="مثلاً: Survival" required>
           <label for="edition">نسخة Minecraft</label><select id="edition" name="edition"><option value="java">Java Edition</option><option value="bedrock">Bedrock Edition</option></select>
+          <label for="software">نوع السيرفر (Java)</label><select id="software" name="software"><option value="paper">Paper</option><option value="purpur">Purpur</option><option value="vanilla">Vanilla</option></select>
           <label for="version">الإصدار</label><input id="version" name="version" value="1.21.11" maxlength="20" required>
-          <button type="submit" class="primary">إنشاء السيرفر</button><p id="form-message" class="form-message" role="status"></p>
+          <button type="submit" class="primary">إنشاء إعدادات السيرفر</button><p id="form-message" class="form-message" role="status"></p>
         </form>
       </div>
       <div class="panel servers-panel"><div class="panel-title"><h3>قائمة السيرفرات</h3><span class="live-label">مباشر</span></div><div id="server-list" class="server-list"><div class="empty-state"><div class="empty-icon">▧</div><strong>ما عندك سيرفرات لسه</strong><p>أنشئ أول سيرفر من النموذج.</p></div></div></div>
     </section>
-    <section class="notice"><strong>ملاحظة مهمة</strong><p>هذه أول نسخة من لوحة التحكم. إنشاء السيرفر هنا يسجل إعداداته تجريبياً فقط؛ لم يتم بعد ربط هاتف Android لتشغيل Minecraft فعلياً، كما أن البيانات الحالية تُحفظ مؤقتاً في ذاكرة الخدمة.</p></section>
+    <section class="notice"><strong>المرحلة الحالية</strong><p>هذه النسخة تحفظ إعدادات السيرفرات مؤقتاً داخل ذاكرة الخدمة. لا يتم تنزيل ملفات Minecraft أو تشغيل السيرفر بعد. الخطوة التالية هي بناء Agent على Android لربط الهاتف بلوحة التحكم وتشغيل السيرفرات عليه.</p></section>
   </main>
   <footer>© 2026 DragonHost <span>صُنع لمجتمع Minecraft</span></footer>
   <script src="/app.js"></script>
