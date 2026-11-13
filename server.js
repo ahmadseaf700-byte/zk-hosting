@@ -300,11 +300,14 @@ const app = http.createServer(async (req, res) => {
         if (body.deviceName) agent.name = String(body.deviceName).trim().slice(0, 48);
         if (body.platform) agent.platform = String(body.platform).slice(0, 40);
         if (body.agentVersion) agent.agentVersion = String(body.agentVersion).slice(0, 32);
-        const runningIds = new Set(Array.isArray(body.runningServers) ? body.runningServers.filter(id => typeof id === "string") : []);
-        for (const server of servers.values()) if (server.userId === agent.userId && server.hostStatus === "ready") server.status = runningIds.has(server.id) ? "online" : "offline";
+        agent.minecraftRuntime = body.minecraftRuntime !== false;
+        if (Array.isArray(body.runningServers)) {
+          const runningIds = new Set(body.runningServers.filter(id => typeof id === "string"));
+          for (const server of servers.values()) if (server.userId === agent.userId && server.hostStatus === "ready") server.status = runningIds.has(server.id) ? "online" : "offline";
+        }
         let queuedProvisioning = 0;
         for (const server of servers.values()) {
-          if (server.userId !== agent.userId || server.hostStatus !== "not_paired" || server.eulaAccepted !== true) continue;
+          if (!agent.minecraftRuntime || server.userId !== agent.userId || server.hostStatus !== "not_paired" || server.eulaAccepted !== true) continue;
           const task = enqueueTask(agent, server, "provision", { server: { id: server.id, name: server.name, subdomain: server.subdomain, motd: server.motd, edition: server.edition, software: server.software, version: server.version, gamemode: server.gamemode, difficulty: server.difficulty, maxPlayers: server.maxPlayers, cracked: server.cracked, allowFlight: server.allowFlight, pvp: server.pvp, eulaAccepted: server.eulaAccepted } });
           server.hostStatus = "provisioning";
           server.provisionTaskId = task.id;
@@ -368,7 +371,8 @@ const app = http.createServer(async (req, res) => {
     const owned = [...agents.values()].filter(agent => agent.userId === user.id);
     return sendJson(res, 200, { agents: owned.map(agent => ({
       id: agent.id, name: agent.name, status: agentIsOnline(agent) ? "online" : "offline",
-      lastSeenAt: agent.lastSeenAt, platform: agent.platform || null, agentVersion: agent.agentVersion || null
+      lastSeenAt: agent.lastSeenAt, platform: agent.platform || null, agentVersion: agent.agentVersion || null,
+      minecraftRuntime: agent.minecraftRuntime !== false
     })) });
   }
 
@@ -396,6 +400,7 @@ const app = http.createServer(async (req, res) => {
       if (!target || target.userId !== user.id) return sendJson(res, 404, { error: "السيرفر غير موجود." });
       const agent = [...agents.values()].find(item => item.userId === user.id && agentIsOnline(item));
       if (!agent) return sendJson(res, 503, { error: "جهاز الاستضافة غير متصل. اربط Hosting Agent أولاً.", code: "AGENT_NOT_CONNECTED" });
+      if (agent.minecraftRuntime === false) return sendJson(res, 503, { error: "تطبيق Android متصل، لكن محرك تشغيل Minecraft لم يُدمج بعد.", code: "AGENT_RUNTIME_UNAVAILABLE" });
       const action = actionMatch[2];
       const task = enqueueTask(agent, target, action, { server: { id: target.id, name: target.name, subdomain: target.subdomain, motd: target.motd, edition: target.edition, software: target.software, version: target.version, gamemode: target.gamemode, difficulty: target.difficulty, maxPlayers: target.maxPlayers, cracked: target.cracked, allowFlight: target.allowFlight, pvp: target.pvp, eulaAccepted: target.eulaAccepted } });
       target.status = action === "stop" ? "stopping" : action === "start" ? "starting" : "restarting";
@@ -462,7 +467,7 @@ const app = http.createServer(async (req, res) => {
           status: "offline", hostStatus: "not_paired", createdAt: new Date().toISOString()
         };
         servers.set(server.id, server);
-        const agent = [...agents.values()].find(item => item.userId === user.id && agentIsOnline(item));
+        const agent = [...agents.values()].find(item => item.userId === user.id && agentIsOnline(item) && item.minecraftRuntime !== false);
         if (agent) {
           server.hostStatus = "provisioning";
           const task = enqueueTask(agent, server, "provision", { server: { id: server.id, name: server.name, subdomain: server.subdomain, motd: server.motd, edition: server.edition, software: server.software, version: server.version, gamemode: server.gamemode, difficulty: server.difficulty, maxPlayers: server.maxPlayers, cracked: server.cracked, allowFlight: server.allowFlight, pvp: server.pvp, eulaAccepted: server.eulaAccepted } });
