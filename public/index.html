@@ -2,58 +2,120 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#101827">
-  <title>DragonHost — تسجيل الدخول</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0b1020">
+  <title>DragonHost — لوحة التحكم</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <header class="topbar">
-    <a class="brand" href="/"><span class="brand-mark">DH</span><span>DragonHost</span></a>
-    <span class="badge"><i></i> استضافة Minecraft</span>
-  </header>
-  <main class="container">
-    <section id="auth-screen" class="auth-wrap">
-      <div class="auth-intro"><p class="eyebrow">أهلاً بك في DragonHost</p><h1>استضف عالمك، <span>وانطلق!</span></h1><p class="subtitle">سجّل دخولك أو أنشئ حساباً جديداً للوصول إلى لوحة تحكم سيرفراتك.</p></div>
-      <div class="panel auth-panel">
-        <div class="auth-tabs"><button id="login-tab" class="auth-tab active" type="button">تسجيل الدخول</button><button id="register-tab" class="auth-tab" type="button">إنشاء حساب</button></div>
-        <form id="auth-form">
-          <label for="auth-email">البريد الإلكتروني</label><input id="auth-email" name="email" type="email" autocomplete="email" placeholder="name@example.com" required maxlength="254">
-          <label for="auth-password">كلمة المرور</label><input id="auth-password" name="password" type="password" autocomplete="current-password" placeholder="8 أحرف على الأقل" minlength="8" maxlength="128" required>
-          <button id="auth-submit" class="primary" type="submit">تسجيل الدخول</button>
-          <p id="auth-message" class="form-message" role="status"></p>
-        </form>
-        <p class="auth-hint">كلمة المرور تُخزّن بشكل مشفّر تجزئياً، ولا نعرضها أو نرسلها لأي مستخدم آخر.</p>
-      </div>
-    </section>
+<header class="topbar">
+  <a class="brand" href="/"><span class="brand-mark">🐉</span><span>DragonHost</span></a>
+  <div class="top-actions"><span class="badge"><i></i> لوحة الاستضافة</span><button id="logout-button" class="logout-button" type="button">تسجيل الخروج</button></div>
+</header>
 
-    <div id="dashboard" hidden>
-      <section class="hero">
-        <div><p class="eyebrow">استضافتك، بطريقتك</p><h1>لوحة تحكم سيرفرات <span>Minecraft</span></h1><p class="subtitle">جهّز إعدادات سيرفر Java أو Bedrock، ثم اربط جهاز الاستضافة لتشغيله فعلياً.</p></div>
-        <div class="hero-cube" aria-hidden="true">▦</div>
-      </section>
-      <section class="status-card">
-        <div class="status-copy"><span class="status-dot"></span><div><strong id="api-status">جارٍ فحص الاتصال...</strong><small id="signed-in-as">متصل بحسابك</small></div></div>
-        <button id="logout-button" class="logout-button" type="button">تسجيل الخروج</button>
-      </section>
-      <section class="section-heading"><div><p class="eyebrow">إدارة الاستضافة</p><h2>سيرفراتي</h2></div><span class="count" id="server-count">0 سيرفر</span></section>
-      <section class="layout">
-        <div class="panel create-panel">
-          <h3>إنشاء سيرفر جديد</h3><p class="muted">اختر إصدار اللعبة ونوع السيرفر.</p>
-          <form id="create-form">
-            <label for="server-name">اسم السيرفر</label><input id="server-name" name="name" maxlength="32" minlength="2" placeholder="مثلاً: Survival" required>
-            <label for="edition">نسخة Minecraft</label><select id="edition" name="edition"><option value="java">Java Edition</option><option value="bedrock">Bedrock Edition</option></select>
-            <label for="software">نوع السيرفر (Java)</label><select id="software" name="software"><option value="paper">Paper</option><option value="purpur">Purpur</option><option value="vanilla">Vanilla</option></select>
-            <label for="version">الإصدار</label><input id="version" name="version" value="1.21.11" maxlength="20" required>
-            <button type="submit" class="primary">إنشاء إعدادات السيرفر</button><p id="form-message" class="form-message" role="status"></p>
-          </form>
-        </div>
-        <div class="panel servers-panel"><div class="panel-title"><h3>قائمة السيرفرات</h3><span class="live-label">مباشر</span></div><div id="server-list" class="server-list"><div class="empty-state">جارٍ التحميل...</div></div></div>
-      </section>
-      <section class="notice"><strong>المرحلة الحالية</strong><p>تسجيل الدخول وإنشاء الحساب جاهزان. إعدادات السيرفرات تُحفظ في ملف البيانات؛ لضمان بقائها بعد إعادة نشر Render يجب ربط Persistent Disk وتعيين DATA_DIR إلى /var/data. تشغيل Minecraft الفعلي يحتاج ربط جهاز الاستضافة.</p></section>
+<main class="container">
+  <section id="auth-screen" class="auth-wrap">
+    <div class="auth-intro"><p class="eyebrow">أهلاً بك في DragonHost</p><h1>استضف عالمك،<br><span>وانطلق!</span></h1><p class="subtitle">منصة واحدة لإعداد وإدارة سيرفرات Minecraft بسهولة.</p></div>
+    <div class="panel auth-panel">
+      <div class="auth-tabs"><button id="login-tab" class="auth-tab active" type="button">تسجيل الدخول</button><button id="register-tab" class="auth-tab" type="button">إنشاء حساب</button></div>
+      <form id="auth-form">
+        <label for="auth-email">البريد الإلكتروني</label><input id="auth-email" name="email" type="email" autocomplete="email" placeholder="name@example.com" required maxlength="254">
+        <label for="auth-password">كلمة المرور</label><input id="auth-password" name="password" type="password" autocomplete="current-password" placeholder="8 أحرف على الأقل" minlength="8" maxlength="128" required>
+        <button id="auth-submit" class="primary" type="submit">تسجيل الدخول</button><p id="auth-message" class="form-message" role="status"></p>
+      </form>
+      <p class="auth-hint">بيانات حسابك محمية، ولا نعرض كلمة المرور داخل لوحة التحكم.</p>
     </div>
-  </main>
-  <footer>© 2026 DragonHost <span>صُنع لمجتمع Minecraft</span></footer>
-  <script src="/app.js"></script>
+  </section>
+
+  <section id="dashboard" hidden>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="side-label">مساحة العمل</div>
+        <button class="nav-item active" data-page="overview"><span>▦</span> نظرة عامة</button>
+        <button class="nav-item" data-page="create"><span>＋</span> إنشاء سيرفر</button>
+        <div class="side-label side-gap">إدارة السيرفر</div>
+        <button class="nav-item" data-page="console"><span>⌘</span> الكونسول</button>
+        <button class="nav-item" data-page="files"><span>▤</span> مدير الملفات</button>
+        <button class="nav-item" data-page="plugins"><span>◈</span> الإضافات والمودات</button>
+        <button class="nav-item" data-page="players"><span>♙</span> اللاعبون</button>
+        <button class="nav-item" data-page="worlds"><span>▧</span> العوالم والنسخ</button>
+        <button class="nav-item" data-page="settings"><span>⚙</span> الإعدادات</button>
+        <div class="sidebar-bottom"><span class="agent-indicator"></span><div><b>جهاز الاستضافة</b><small>غير متصل حالياً</small></div></div>
+      </aside>
+
+      <div class="workspace">
+        <div class="welcome-row"><div><p class="eyebrow">مركز التحكم</p><h1 id="page-title">نظرة عامة</h1><p class="subtitle">أهلاً بك في لوحة DragonHost. جهّز سيرفرك وابدأ مغامرتك.</p></div><div class="user-chip"><span class="user-avatar">DH</span><span id="signed-in-as">حسابك</span></div></div>
+
+        <section id="page-overview" class="page-view">
+          <div class="metric-grid">
+            <article class="metric-card"><span class="metric-icon green">▣</span><span class="metric-label">إجمالي السيرفرات</span><strong id="server-count">0</strong><small>ضمن حسابك</small></article>
+            <article class="metric-card"><span class="metric-icon amber">◷</span><span class="metric-label">حالة الاستضافة</span><strong class="metric-word">غير متصل</strong><small>بانتظار ربط Agent</small></article>
+            <article class="metric-card"><span class="metric-icon blue">⌁</span><span class="metric-label">استهلاك الموارد</span><strong class="metric-word">—</strong><small>سيظهر بعد التشغيل</small></article>
+          </div>
+          <div class="section-title"><div><h2>سيرفراتك</h2><p>كل عوالمك في مكان واحد</p></div><button id="new-server-button" class="primary compact" type="button">＋ إنشاء سيرفر</button></div>
+          <div id="server-list" class="server-grid"><div class="empty-state">جارٍ تحميل السيرفرات...</div></div>
+          <div class="notice"><b>خطوة الربط التالية</b><p>لوحة التحكم جاهزة لإعداد السيرفرات. تشغيل Minecraft فعلياً يحتاج إلى ربط Hosting Agent على جهاز Android أو Linux. لن نعرض حالة «يعمل» قبل وصول تأكيد حقيقي من الجهاز.</p></div>
+        </section>
+
+        <section id="page-create" class="page-view" hidden>
+          <div class="wizard-card">
+            <div class="wizard-heading"><div><p class="eyebrow">إعداد جديد</p><h2>أنشئ سيرفرك</h2><p>أربع خطوات بسيطة لتجهيز عالمك.</p></div><span class="wizard-tag">SERVER WIZARD</span></div>
+            <div class="steps"><div class="step active" data-step-indicator="1"><i>1</i><span>الهوية</span></div><div class="step" data-step-indicator="2"><i>2</i><span>البرنامج</span></div><div class="step" data-step-indicator="3"><i>3</i><span>العالم</span></div><div class="step" data-step-indicator="4"><i>4</i><span>الإنشاء</span></div></div>
+            <form id="wizard-form">
+              <div class="wizard-step" data-step="1">
+                <h3>خلّينا نتعرّف على سيرفرك</h3><p class="muted">اختر اسماً وعنواناً مميزاً يظهر للاعبين.</p>
+                <label for="server-name">اسم السيرفر</label><input id="server-name" name="name" maxlength="32" minlength="2" placeholder="مثلاً: Dragon Survival" required>
+                <label for="subdomain">عنوان السيرفر</label><div class="domain-input"><input id="subdomain" name="subdomain" maxlength="24" placeholder="my-server" required><span>.dragonhost.net</span></div><p id="subdomain-status" class="field-hint">استخدم أحرفاً إنجليزية صغيرة وأرقاماً وشرطة فقط.</p>
+                <label for="motd">رسالة الترحيب MOTD</label><input id="motd" name="motd" maxlength="120" value="§aWelcome to §bDragonHost!" placeholder="رسالة تظهر في قائمة السيرفرات">
+                <div class="motd-preview"><small>معاينة داخل Minecraft</small><div id="motd-preview-text">Welcome to DragonHost!</div></div>
+              </div>
+              <div class="wizard-step" data-step="2" hidden>
+                <h3>اختر برنامج السيرفر</h3><p class="muted">حدد النسخة والنواة المناسبة لطريقة لعبك.</p>
+                <div class="choice-grid edition-choices">
+                  <label class="choice-card selected"><input type="radio" name="edition" value="java" checked><span class="choice-icon">☕</span><b>Java Edition</b><small>للكمبيوتر والبلوقنات</small></label>
+                  <label class="choice-card"><input type="radio" name="edition" value="bedrock"><span class="choice-icon">📱</span><b>Bedrock Edition</b><small>للهاتف والكونسول</small></label>
+                </div>
+                <label for="software">نواة السيرفر</label><select id="software" name="software"><option value="paper">Paper — أداء وبلوقنات</option><option value="purpur">Purpur — تخصيصات إضافية</option><option value="vanilla">Vanilla — النسخة الأصلية</option><option value="fabric" disabled>Fabric — قريباً</option><option value="forge" disabled>Forge — قريباً</option></select>
+                <label for="version">إصدار Minecraft</label><select id="version" name="version"><option value="1.21.11">1.21.11</option><option value="1.21.10">1.21.10</option><option value="1.21.8">1.21.8</option><option value="1.21.4">1.21.4</option><option value="1.20.1">1.20.1</option></select>
+                <p class="field-hint">الإصدارات المعروضة حالياً قائمة أولية؛ سنربطها بمصدر الإصدارات الرسمي في مرحلة لاحقة.</p>
+              </div>
+              <div class="wizard-step" data-step="3" hidden>
+                <h3>اضبط قواعد عالمك</h3><p class="muted">يمكنك تغيير هذه الإعدادات لاحقاً.</p>
+                <div class="two-cols"><div><label for="gamemode">وضع اللعب</label><select id="gamemode" name="gamemode"><option value="survival">Survival</option><option value="creative">Creative</option><option value="adventure">Adventure</option></select></div><div><label for="difficulty">الصعوبة</label><select id="difficulty" name="difficulty"><option value="peaceful">Peaceful</option><option value="easy">Easy</option><option value="normal" selected>Normal</option><option value="hard">Hard</option></select></div></div>
+                <label for="maxPlayers">الحد الأقصى للاعبين <strong id="players-value">20</strong></label><input id="maxPlayers" name="maxPlayers" type="range" min="1" max="100" value="20">
+                <div class="toggle-row"><div><b>السماح بالحسابات غير الأصلية</b><small>Offline / Cracked mode — يقلل حماية الهوية، استخدمه بحذر.</small></div><label class="switch"><input type="checkbox" name="cracked"><span></span></label></div>
+                <div class="toggle-row"><div><b>السماح بالطيران</b><small>يسمح بالطيران دون إضافة خارجية.</small></div><label class="switch"><input type="checkbox" name="allowFlight"><span></span></label></div>
+                <div class="toggle-row"><div><b>تفعيل PvP</b><small>السماح للاعبين بالقتال.</small></div><label class="switch"><input type="checkbox" name="pvp" checked><span></span></label></div>
+              </div>
+              <div class="wizard-step" data-step="4" hidden>
+                <h3>جاهزون لإنشاء عالمك؟</h3><p class="muted">راجع ملخص الإعدادات قبل الحفظ.</p><div id="review-card" class="review-card"></div>
+                <div class="provision-box"><div class="provision-head"><b>تجهيز إعدادات السيرفر</b><span id="provision-percent">0%</span></div><div class="progress-track"><i id="provision-bar"></i></div><p id="provision-status">سيتم حفظ إعدادات السيرفر في حسابك.</p></div>
+                <p class="field-hint">ملاحظة: هذه الخطوة تنشئ سجل الإعدادات فقط. تحميل ملفات Minecraft وتشغيلها سيبدأ بعد ربط جهاز الاستضافة.</p>
+              </div>
+              <div class="wizard-actions"><button id="wizard-back" class="secondary" type="button" hidden>رجوع</button><span class="wizard-spacer"></span><button id="wizard-next" class="primary compact" type="button">التالي ←</button><button id="wizard-create" class="primary compact" type="submit" hidden>إنشاء السيرفر</button></div>
+              <p id="wizard-message" class="form-message" role="status"></p>
+            </form>
+          </div>
+        </section>
+
+        <section id="page-placeholder" class="page-view" hidden><div class="placeholder-card"><div class="placeholder-icon">🚧</div><h2 id="placeholder-title">قريباً</h2><p id="placeholder-description">هذا القسم ضمن مراحل التطوير القادمة في DragonHost.</p><span class="coming-badge">قيد التطوير</span></div></section>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="console-modal" class="modal-backdrop" hidden>
+  <section class="console-modal" role="dialog" aria-modal="true" aria-labelledby="console-title">
+    <header class="console-header"><div><span class="console-live"></span><b id="console-title">DragonHost Console</b><small>واجهة تجريبية — بانتظار ربط Agent</small></div><button id="console-close" class="icon-button" type="button" aria-label="إغلاق">✕</button></header>
+    <div id="console-output" class="console-output"><p class="log-muted">[DragonHost] Console UI initialized.</p><p class="log-warn">[NOTICE] لا يوجد جهاز استضافة متصل. لم يتم إرسال أي أمر.</p></div>
+    <form id="console-form" class="console-input"><span>›</span><input id="console-command" placeholder="اكتب أمراً..." autocomplete="off" disabled><button type="submit" disabled>إرسال</button></form>
+    <div class="console-foot">سيتم تفعيل تنفيذ الأوامر والسجلات المباشرة بعد ربط RCON وWebSocket بجهاز الاستضافة.</div>
+  </section>
+</div>
+
+<footer>© 2026 DragonHost <span>صُنع لمجتمع Minecraft</span></footer>
+<script src="/app.js"></script>
 </body>
 </html>
