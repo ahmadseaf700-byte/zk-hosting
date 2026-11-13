@@ -219,6 +219,15 @@ const app = http.createServer(async (req, res) => {
     return sendJson(res, 200, { ok: true });
   }
 
+  if (req.method === "GET" && url.pathname === "/api/subdomains/check") {
+    const user = getUser(req);
+    if (!user) return sendJson(res, 401, { error: "سجّل الدخول أولاً." });
+    const name = String(url.searchParams.get("name") || "").trim().toLowerCase();
+    if (!/^[a-z0-9](?:[a-z0-9-]{0,22}[a-z0-9])?$/.test(name)) return sendJson(res, 400, { error: "صيغة العنوان غير صحيحة." });
+    const available = ![...servers.values()].some(server => server.subdomain === name);
+    return sendJson(res, 200, { available, name });
+  }
+
   if (url.pathname.startsWith("/api/servers")) {
     const user = getUser(req);
     if (!user) return sendJson(res, 401, { error: "سجّل الدخول أولاً للمتابعة." });
@@ -232,17 +241,32 @@ const app = http.createServer(async (req, res) => {
       try {
         const body = await readBody(req);
         const name = String(body.name || "").trim();
+        const subdomain = String(body.subdomain || "").trim().toLowerCase();
         const edition = String(body.edition || "").trim().toLowerCase();
         const version = String(body.version || "1.21.11").trim();
         const software = String(body.software || "paper").trim().toLowerCase();
+        const motd = String(body.motd || "").slice(0, 120);
+        const gamemode = String(body.gamemode || "survival").toLowerCase();
+        const difficulty = String(body.difficulty || "normal").toLowerCase();
+        const maxPlayers = Number(body.maxPlayers || 20);
+        const cracked = body.cracked === true;
+        const allowFlight = body.allowFlight === true;
+        const pvp = body.pvp !== false;
 
         if (name.length < 2 || name.length > 32) return sendJson(res, 400, { error: "اسم السيرفر يجب أن يكون بين حرفين و32 حرفاً." });
+        if (!/^[a-z0-9](?:[a-z0-9-]{0,22}[a-z0-9])?$/.test(subdomain)) return sendJson(res, 400, { error: "عنوان السيرفر غير صالح." });
+        if ([...servers.values()].some(item => item.subdomain === subdomain)) return sendJson(res, 409, { error: "عنوان السيرفر مستخدم بالفعل." });
         if (!["java", "bedrock"].includes(edition)) return sendJson(res, 400, { error: "اختر Java أو Bedrock." });
         if (!["vanilla", "paper", "purpur"].includes(software)) return sendJson(res, 400, { error: "نوع السيرفر غير مدعوم حالياً." });
         if (!/^\d{1,2}\.\d{1,2}(\.\d{1,2})?$/.test(version)) return sendJson(res, 400, { error: "صيغة الإصدار غير صحيحة." });
+        if (!["survival", "creative", "adventure"].includes(gamemode)) return sendJson(res, 400, { error: "وضع اللعب غير صالح." });
+        if (!["peaceful", "easy", "normal", "hard"].includes(difficulty)) return sendJson(res, 400, { error: "مستوى الصعوبة غير صالح." });
+        if (!Number.isInteger(maxPlayers) || maxPlayers < 1 || maxPlayers > 100) return sendJson(res, 400, { error: "عدد اللاعبين يجب أن يكون بين 1 و100." });
 
         const server = {
-          id: crypto.randomUUID(), userId: user.id, name, edition, version,
+          id: crypto.randomUUID(), userId: user.id, name, subdomain, motd,
+          edition, version, gamemode, difficulty, maxPlayers, cracked,
+          allowFlight, pvp,
           software: edition === "bedrock" ? "bedrock" : software,
           status: "offline", hostStatus: "not_paired", createdAt: new Date().toISOString()
         };
