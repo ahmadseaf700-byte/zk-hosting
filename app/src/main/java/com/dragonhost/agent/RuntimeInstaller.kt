@@ -1,6 +1,7 @@
 package com.dragonhost.agent
 
 import android.content.Context
+import android.system.Os
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
 import org.tukaani.xz.XZInputStream
 import java.io.BufferedInputStream
@@ -135,15 +136,30 @@ object RuntimeInstaller {
                 check(name == "jre-21" || name.startsWith("jre-21/")) {
                     "الأرشيف يحتوي على مجلد غير متوقع"
                 }
-                check(!entry.isSymbolicLink && !entry.isLink) {
-                    "روابط الملفات غير مسموحة داخل runtime"
+                check(!entry.isLink) {
+                    "الأرشيف يحتوي على رابط صلب غير مدعوم"
                 }
 
                 val output = File(destination, name).canonicalFile
                 check(output.path == root.path || output.path.startsWith(root.path + File.separator)) {
                     "تم رفض مسار خارج مجلد التثبيت"
                 }
-                if (entry.isDirectory) {
+                if (entry.isSymbolicLink) {
+                    val linkName = entry.linkName.replace('\\', '/')
+                    check(linkName.isNotBlank() && !linkName.startsWith("/")) {
+                        "الأرشيف يحتوي على رابط رمزي غير آمن"
+                    }
+                    val target = output.parentFile.toPath().resolve(linkName).normalize()
+                    check(target.startsWith(root.toPath())) {
+                        "الرابط الرمزي يشير إلى خارج مجلد Java"
+                    }
+                    val parent = output.parentFile ?: error("مسار الرابط غير صالح")
+                    check(parent.isDirectory || parent.mkdirs()) { "تعذر إنشاء مجلد الرابط" }
+                    check(!output.exists() && !java.nio.file.Files.isSymbolicLink(output.toPath())) {
+                        "مسار الرابط موجود مسبقاً"
+                    }
+                    Os.symlink(linkName, output.absolutePath)
+                } else if (entry.isDirectory) {
                     check(output.isDirectory || output.mkdirs()) { "تعذر إنشاء مجلد Java" }
                 } else if (entry.isFile) {
                     expanded += entry.size
