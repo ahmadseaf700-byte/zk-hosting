@@ -25,6 +25,10 @@ class ServerWorkspace(private val context: Context) {
     fun prepare(config: Config, onProgress: (String) -> Unit = {}): Prepared {
         require(runCatching { UUID.fromString(config.id) }.isSuccess) { "معرّف السيرفر غير صالح" }
         require(config.eulaAccepted) { "يجب الموافقة على Minecraft EULA أولاً" }
+        require(config.name.trim().length in 2..32) { "اسم السيرفر يجب أن يكون بين حرفين و32 حرفاً" }
+        require(config.motd.length <= 120) { "رسالة السيرفر طويلة جداً" }
+        require(config.gamemode in setOf("survival", "creative", "adventure")) { "وضع اللعب غير صالح" }
+        require(config.difficulty in setOf("peaceful", "easy", "normal", "hard")) { "مستوى الصعوبة غير صالح" }
         require(config.version.matches(Regex("\\d{1,2}\\.\\d{1,2}(\\.\\d{1,2})?"))) { "صيغة إصدار Minecraft غير صحيحة" }
         require(config.maxPlayers in 1..100) { "عدد اللاعبين يجب أن يكون بين 1 و100" }
         require(config.software in setOf("vanilla", "paper", "purpur")) { "نوع السيرفر غير مدعوم" }
