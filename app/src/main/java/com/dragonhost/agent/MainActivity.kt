@@ -73,6 +73,11 @@ class MainActivity : AppCompatActivity() {
             gravity = Gravity.CENTER
             setPadding(12, 12, 12, 18)
         }, matchWrap())
+        root.addView(Button(this).apply {
+            text = "تنزيل واختبار Java 21"
+            setOnClickListener { installAndTestJava() }
+        }, matchWrap().apply { bottomMargin = 12 })
+
         urlInput = EditText(this).apply {
             hint = "رابط DragonHost"
             setSingleLine(true)
@@ -112,6 +117,38 @@ class MainActivity : AppCompatActivity() {
             gravity = Gravity.CENTER
         }, matchWrap())
         setContentView(root)
+    }
+
+
+    private fun installAndTestJava() {
+        status.text = "جارٍ تجهيز Java 21..."
+        executor.execute {
+            try {
+                val runtime = RuntimeInstaller.install(this) { message ->
+                    runOnUiThread { status.text = message }
+                }
+                runOnUiThread { status.text = "تم تنزيل Java. جارٍ اختبار تشغيل JVM..." }
+                val result = EmbeddedJvm().nativeStart(
+                    runtime.absolutePath,
+                    cacheDir.absolutePath,
+                    filesDir.absolutePath
+                )
+                runOnUiThread {
+                    status.text = when {
+                        result.startsWith("JVM_STARTED:21") ->
+                            "نجح اختبار Java 21 داخل التطبيق: $result"
+                        result == "ALREADY_RUNNING" ->
+                            "Java تعمل مسبقاً داخل التطبيق"
+                        else -> "نتيجة اختبار Java: $result"
+                    }
+                }
+            } catch (error: Exception) {
+                runOnUiThread {
+                    status.text = "تعذر تجهيز أو تشغيل Java 21: " +
+                        (error.message ?: "خطأ غير معروف")
+                }
+            }
+        }
     }
 
     private fun matchWrap() = LinearLayout.LayoutParams(
