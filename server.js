@@ -394,7 +394,7 @@ const app = http.createServer(async (req, res) => {
       return sendJson(res, 200, { servers: ownedServers, note: "حالة السيرفرات تعتمد على آخر اتصال مؤكد من Hosting Agent." });
     }
 
-    const pairCodeMatch = url.pathname.match(/^\\/api\\/servers\\/([0-9a-f-]+)\\/agent-code$/i);
+    const pairCodeMatch = url.pathname.match(/^\/api\/servers\/([0-9a-f-]+)\/agent-code$/i);
     if (req.method === "POST" && pairCodeMatch) {
       const target = servers.get(pairCodeMatch[1]);
       if (!target || target.userId !== user.id) return sendJson(res, 404, { error: "السيرفر غير موجود." });
