@@ -2,7 +2,7 @@ package com.dragonhost.agent
 
 import android.content.Context
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
-import org.tukaani.xz.XZCompressorInputStream
+import org.tukaani.xz.XZInputStream
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
 import java.io.File
@@ -124,7 +124,7 @@ object RuntimeInstaller {
         var expanded = 0L
         val root = destination.canonicalFile
         TarArchiveInputStream(
-            XZCompressorInputStream(BufferedInputStream(FileInputStream(archive)))
+            XZInputStream(BufferedInputStream(FileInputStream(archive)))
         ).use { tar ->
             while (true) {
                 val entry = tar.nextTarEntry ?: break
