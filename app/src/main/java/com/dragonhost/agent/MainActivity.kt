@@ -66,6 +66,13 @@ class MainActivity : AppCompatActivity() {
             setPadding(0, 8, 0, 18)
         }
         root.addView(status, matchWrap())
+        root.addView(TextView(this).apply {
+            text = RuntimeCompatibility.inspect(this@MainActivity).summary()
+            textSize = 13f
+            setTextColor(0xFFB8C5CE.toInt())
+            gravity = Gravity.CENTER
+            setPadding(12, 12, 12, 18)
+        }, matchWrap())
         urlInput = EditText(this).apply {
             hint = "رابط DragonHost"
             setSingleLine(true)
