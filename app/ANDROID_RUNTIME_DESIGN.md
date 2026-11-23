@@ -37,9 +37,9 @@ When using an in-process HotSpot VM on Android 11+, the manifest now sets `andro
 
 ## App and backend integration sequence
 
-1. Add runtime compatibility detection (API level, ABI, free storage) and a clear unsupported-device state.
-2. Add a verified runtime installer with progress, cancellation, staging extraction, and atomic activation.
-3. Add the JNI bridge and test `java -version` in-process before enabling any server tasks.
+1. Runtime compatibility detection is present for Android API 29+, arm64-v8a and at least 2 GB free storage; the installer repeats the storage gate before downloading.
+2. The pinned runtime installer and bounded staging extraction are implemented; download cancellation and crash-resume are still pending.
+3. The JNI bridge and in-app Java 21 smoke-test button are implemented; successful CI and physical-device validation are still pending.
 4. Add the Android server process manager: provision, start, stop, restart, logs, and bounded console commands.
 5. Integrate the existing DragonHost task polling/result API.
 6. Only then advertise `minecraftRuntime=true` in heartbeats.
