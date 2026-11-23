@@ -5,6 +5,10 @@
 #include <mutex>
 #include <string>
 
+#ifndef JNI_VERSION_1_8
+#define JNI_VERSION_1_8 0x00010008
+#endif
+
 #define LOG_TAG "DragonHostJVM"
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
