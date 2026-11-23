@@ -27,7 +27,7 @@ The intended execution model is an in-process JVM created through JNI (`JNI_Crea
 
 When using an in-process HotSpot VM on Android 11+, evaluate the runtime's heap-tagging note and set `android:allowNativeHeapPointerTagging="false"` before enabling JNI VM creation. Do not change this manifest flag until the native integration is actually present and tested.
 
-## App and backend integration sequence
+## JNI bootstrap foundation (implemented, not yet device-validated)\n\n- The Android module now builds a small native library and exposes `EmbeddedJvm.nativeStart(...)`.\n- The bridge loads `<runtimeRoot>/lib/server/libjvm.so`, calls `JNI_CreateJavaVM` in-process, and reads `java.version` as a smoke-test result.\n- The app is restricted to `arm64-v8a` and `minSdk 29` for this experimental runtime path. The manifest disables native heap pointer tagging as required by the candidate embedder notes.\n- This is only a bootstrap foundation: no runtime archive is downloaded or installed yet, no pinned runtime checksum is configured, no device test has passed, and no Minecraft server is launched. Keep `minecraftRuntime=false`.\n\n## App and backend integration sequence
 
 1. Add runtime compatibility detection (API level, ABI, free storage) and a clear unsupported-device state.
 2. Add a verified runtime installer with progress, cancellation, staging extraction, and atomic activation.
