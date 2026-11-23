@@ -27,7 +27,7 @@ class ServerWorkspace(private val context: Context) {
         require(config.eulaAccepted) { "يجب الموافقة على Minecraft EULA أولاً" }
         require(config.version.matches(Regex("\\d{1,2}\\.\\d{1,2}(\\.\\d{1,2})?"))) { "صيغة إصدار Minecraft غير صحيحة" }
         require(config.maxPlayers in 1..100) { "عدد اللاعبين يجب أن يكون بين 1 و100" }
-        require(config.software in setOf("vanilla", "purpur")) { "النسخة الأولى تدعم Vanilla وPurpur فقط" }
+        require(config.software in setOf("vanilla", "paper", "purpur")) { "نوع السيرفر غير مدعوم" }
 
         val root = File(context.filesDir, "minecraft-servers").canonicalFile
         if (!root.exists() && !root.mkdirs()) error("تعذر إنشاء مجلد السيرفرات")
@@ -55,6 +55,23 @@ class ServerWorkspace(private val context: Context) {
     private fun resolveDownload(config: Config, onProgress: (String) -> Unit): Pair<String, String?> {
         if (config.software == "purpur") {
             return "https://api.purpurmc.org/v2/purpur/" + config.version + "/latest/download" to null
+        }
+        if (config.software == "paper") {
+            onProgress("جارٍ جلب بيانات إصدار Paper...")
+            val base = "https://api.papermc.io/v2/projects/paper/versions/" + config.version
+            val builds = JSONObject(readUrl("$base/builds")).getJSONArray("builds")
+            var selectedBuild = -1
+            for (index in 0 until builds.length()) {
+                val item = builds.getJSONObject(index)
+                if (item.optString("channel") == "default") {
+                    selectedBuild = item.optInt("build", -1)
+                }
+            }
+            require(selectedBuild > 0) { "لا يوجد إصدار Paper مستقر لهذا الإصدار" }
+            val buildInfo = JSONObject(readUrl("$base/builds/$selectedBuild"))
+            val fileName = buildInfo.getJSONObject("downloads")
+                .getJSONObject("application").getString("name")
+            return "$base/builds/$selectedBuild/downloads/$fileName" to null
         }
         onProgress("جارٍ جلب بيانات الإصدار الرسمي...")
         val manifest = JSONObject(readUrl("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json"))
