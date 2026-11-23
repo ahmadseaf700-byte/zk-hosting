@@ -177,6 +177,25 @@ Java_com_dragonhost_agent_EmbeddedJvm_nativeLaunchServer(
     jmethodID setIn = env->GetStaticMethodID(systemClass, "setIn", "(Ljava/io/InputStream;)V");
     env->CallStaticVoidMethod(systemClass, setIn, pipedInput);
 
+    // Persist stdout/stderr to the server workspace so the app can show a real console log.
+    jclass fileOutputClass = env->FindClass("java/io/FileOutputStream");
+    jmethodID fileOutputCtor = env->GetMethodID(
+        fileOutputClass, "<init>", "(Ljava/lang/String;Z)V");
+    const std::string logPath = workingDirectory + "/server.log";
+    jobject fileOutput = env->NewObject(
+        fileOutputClass, fileOutputCtor, env->NewStringUTF(logPath.c_str()), JNI_TRUE);
+    jclass printStreamClass = env->FindClass("java/io/PrintStream");
+    jmethodID printStreamCtor = env->GetMethodID(
+        printStreamClass, "<init>", "(Ljava/io/OutputStream;Z)V");
+    jobject serverLogStream = env->NewObject(
+        printStreamClass, printStreamCtor, fileOutput, JNI_TRUE);
+    jmethodID setOut = env->GetStaticMethodID(
+        systemClass, "setOut", "(Ljava/io/PrintStream;)V");
+    jmethodID setErr = env->GetStaticMethodID(
+        systemClass, "setErr", "(Ljava/io/PrintStream;)V");
+    env->CallStaticVoidMethod(systemClass, setOut, serverLogStream);
+    env->CallStaticVoidMethod(systemClass, setErr, serverLogStream);
+
     {
         std::lock_guard<std::mutex> lock(g_server_mutex);
         if (g_server_input) env->DeleteGlobalRef(g_server_input);
@@ -266,6 +285,8 @@ Java_com_dragonhost_agent_EmbeddedJvm_nativeLaunchServer(
 
     LOGE("Starting Minecraft server main class from %s", jarPath.c_str());
     env->CallObjectMethod(mainMethod, invoke, nullptr, invokeArgs);
+    jmethodID closeLog = env->GetMethodID(printStreamClass, "close", "()V");
+    env->CallVoidMethod(serverLogStream, closeLog);
     const bool failed = env->ExceptionCheck();
     if (failed) {
         env->ExceptionDescribe();
