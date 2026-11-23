@@ -27,7 +27,15 @@ The intended execution model is an in-process JVM created through JNI (`JNI_Crea
 
 When using an in-process HotSpot VM on Android 11+, evaluate the runtime's heap-tagging note and set `android:allowNativeHeapPointerTagging="false"` before enabling JNI VM creation. Do not change this manifest flag until the native integration is actually present and tested.
 
-## JNI bootstrap foundation (implemented, not yet device-validated)\n\n- The Android module now builds a small native library and exposes `EmbeddedJvm.nativeStart(...)`.\n- The bridge loads `<runtimeRoot>/lib/server/libjvm.so`, calls `JNI_CreateJavaVM` in-process, and reads `java.version` as a smoke-test result.\n- The app is restricted to `arm64-v8a` and `minSdk 29` for this experimental runtime path. The manifest disables native heap pointer tagging as required by the candidate embedder notes.\n- This is only a bootstrap foundation: no runtime archive is downloaded or installed yet, no pinned runtime checksum is configured, no device test has passed, and no Minecraft server is launched. Keep `minecraftRuntime=false`.\n\n## App and backend integration sequence
+## Runtime installer and JNI bootstrap (implemented, not yet validated)
+
+- The app can download the pinned OpenJDK 21.0.12+8 arm64 runtime archive from the NLauncher Android OpenJDK project.
+- The installer verifies the pinned SHA-256 before extraction, rejects absolute paths, path traversal and archive links, enforces download/extraction size limits, validates expected runtime files and activates it in app-private storage.
+- The Android module builds a native library and exposes `EmbeddedJvm.nativeStart(...)`; the bridge loads `lib/server/libjvm.so`, calls `JNI_CreateJavaVM` in-process and reads `java.version`.
+- The app UI now has a “Download and test Java 21” action. It has not yet passed CI or a physical-device test. The upstream runtime itself is explicitly experimental.
+- Keep `minecraftRuntime=false`; a successful JVM startup is not a successful Minecraft server startup.
+
+## App and backend integration sequence
 
 1. Add runtime compatibility detection (API level, ABI, free storage) and a clear unsupported-device state.
 2. Add a verified runtime installer with progress, cancellation, staging extraction, and atomic activation.
