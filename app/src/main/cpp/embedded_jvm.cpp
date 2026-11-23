@@ -6,6 +6,8 @@
 #include <string>
 #include <atomic>
 #include <unistd.h>
+#include <thread>
+#include <vector>
 
 #ifndef JNI_VERSION_1_8
 #define JNI_VERSION_1_8 0x00010008
@@ -130,32 +132,47 @@ Java_com_dragonhost_agent_EmbeddedJvm_nativeStart(
     return env->NewStringUTF(("JVM_STARTED:" + readJavaVersion(vmEnv)).c_str());
 }
 
-extern "C" JNIEXPORT jstring JNICALL
-Java_com_dragonhost_agent_EmbeddedJvm_nativeLaunchServer(
-    JNIEnv* callerEnv, jobject /* thiz */, jstring jarPathValue, jstring workingDirectoryValue) {
-    if (!g_vm) return callerEnv->NewStringUTF("ERROR:JVM_NOT_STARTED");
-    if (g_server_running.exchange(true)) return callerEnv->NewStringUTF("ERROR:SERVER_ALREADY_RUNNING");
 
-    const std::string jarPath = fromJava(callerEnv, jarPathValue);
-    const std::string workingDirectory = fromJava(callerEnv, workingDirectoryValue);
-    if (jarPath.empty() || workingDirectory.empty()) {
-        g_server_running = false;
-        return callerEnv->NewStringUTF("ERROR:INVALID_SERVER_PATH");
+namespace {
+int g_command_pipe[2] = {-1, -1};
+std::string g_server_result;
+
+void closeCommandWriter() {
+    std::lock_guard<std::mutex> lock(g_server_mutex);
+    if (g_command_pipe[1] >= 0) {
+        close(g_command_pipe[1]);
+        g_command_pipe[1] = -1;
     }
+}
 
+void closeCommandReader() {
+    std::lock_guard<std::mutex> lock(g_server_mutex);
+    if (g_command_pipe[0] >= 0) {
+        close(g_command_pipe[0]);
+        g_command_pipe[0] = -1;
+    }
+}
+
+void runServerInEmbeddedVm(const std::string& jarPath, const std::string& workingDirectory) {
     bool attached = false;
     JNIEnv* env = attachEmbedded(&attached);
     if (!env) {
+        g_server_result = "ERROR:EMBEDDED_VM_ATTACH_FAILED";
+        closeCommandWriter();
+        closeCommandReader();
         g_server_running = false;
-        return callerEnv->NewStringUTF("ERROR:EMBEDDED_VM_ATTACH_FAILED");
+        return;
     }
 
     char previousDirectory[4096]{};
     const bool havePreviousDirectory = getcwd(previousDirectory, sizeof(previousDirectory)) != nullptr;
     if (chdir(workingDirectory.c_str()) != 0) {
+        g_server_result = "ERROR:WORKING_DIRECTORY_FAILED";
+        closeCommandWriter();
+        closeCommandReader();
         if (attached) g_vm->DetachCurrentThread();
         g_server_running = false;
-        return callerEnv->NewStringUTF("ERROR:WORKING_DIRECTORY_FAILED");
+        return;
     }
 
     jclass systemClass = env->FindClass("java/lang/System");
@@ -166,7 +183,8 @@ Java_com_dragonhost_agent_EmbeddedJvm_nativeLaunchServer(
     jstring userDirValue = env->NewStringUTF(workingDirectory.c_str());
     env->CallStaticObjectMethod(systemClass, setProperty, userDirKey, userDirValue);
 
-    // Pipe console input so the Android app can send the normal "stop" command.
+    // Bridge the Android-side command API to Java System.in without attaching an
+    // Android/ART-owned thread to the embedded HotSpot VM.
     jclass pipedInputClass = env->FindClass("java/io/PipedInputStream");
     jclass pipedOutputClass = env->FindClass("java/io/PipedOutputStream");
     jmethodID inputCtor = env->GetMethodID(pipedInputClass, "<init>", "()V");
@@ -177,7 +195,42 @@ Java_com_dragonhost_agent_EmbeddedJvm_nativeLaunchServer(
     jmethodID setIn = env->GetStaticMethodID(systemClass, "setIn", "(Ljava/io/InputStream;)V");
     env->CallStaticVoidMethod(systemClass, setIn, pipedInput);
 
-    // Persist stdout/stderr to the server workspace so the app can show a real console log.
+    {
+        std::lock_guard<std::mutex> lock(g_server_mutex);
+        if (g_server_input) env->DeleteGlobalRef(g_server_input);
+        g_server_input = env->NewGlobalRef(pipedOutput);
+    }
+
+    std::thread inputPump([readFd = g_command_pipe[0]]() {
+        bool pumpAttached = false;
+        JNIEnv* pumpEnv = attachEmbedded(&pumpAttached);
+        if (!pumpEnv) return;
+        char buffer[512];
+        while (true) {
+            const ssize_t count = read(readFd, buffer, sizeof(buffer));
+            if (count <= 0) break;
+            jobject output = nullptr;
+            {
+                std::lock_guard<std::mutex> lock(g_server_mutex);
+                output = g_server_input;
+            }
+            if (!output) break;
+            jclass outputClass = pumpEnv->GetObjectClass(output);
+            jmethodID writeMethod = pumpEnv->GetMethodID(outputClass, "write", "([B)V");
+            jmethodID flushMethod = pumpEnv->GetMethodID(outputClass, "flush", "()V");
+            jbyteArray bytes = pumpEnv->NewByteArray(static_cast<jsize>(count));
+            pumpEnv->SetByteArrayRegion(bytes, 0, static_cast<jsize>(count),
+                                        reinterpret_cast<const jbyte*>(buffer));
+            pumpEnv->CallVoidMethod(output, writeMethod, bytes);
+            pumpEnv->CallVoidMethod(output, flushMethod);
+            if (pumpEnv->ExceptionCheck()) pumpEnv->ExceptionClear();
+            pumpEnv->DeleteLocalRef(bytes);
+            pumpEnv->DeleteLocalRef(outputClass);
+        }
+        if (pumpAttached) g_vm->DetachCurrentThread();
+    });
+
+    // Keep a durable server log for the panel's console view.
     jclass fileOutputClass = env->FindClass("java/io/FileOutputStream");
     jmethodID fileOutputCtor = env->GetMethodID(
         fileOutputClass, "<init>", "(Ljava/lang/String;Z)V");
@@ -195,12 +248,6 @@ Java_com_dragonhost_agent_EmbeddedJvm_nativeLaunchServer(
         systemClass, "setErr", "(Ljava/io/PrintStream;)V");
     env->CallStaticVoidMethod(systemClass, setOut, serverLogStream);
     env->CallStaticVoidMethod(systemClass, setErr, serverLogStream);
-
-    {
-        std::lock_guard<std::mutex> lock(g_server_mutex);
-        if (g_server_input) env->DeleteGlobalRef(g_server_input);
-        g_server_input = env->NewGlobalRef(pipedOutput);
-    }
 
     // Read the JAR manifest to support Vanilla's bundler and Paperclip/Purpur launchers.
     jclass fileClass = env->FindClass("java/io/File");
@@ -229,81 +276,112 @@ Java_com_dragonhost_agent_EmbeddedJvm_nativeLaunchServer(
     jmethodID closeJar = env->GetMethodID(jarFileClass, "close", "()V");
     env->CallVoidMethod(jarFile, closeJar);
 
+    std::string finalResult = "SERVER_EXITED";
     if (!mainClassName || env->ExceptionCheck()) {
         if (env->ExceptionCheck()) env->ExceptionClear();
+        finalResult = "ERROR:SERVER_MAIN_CLASS_NOT_FOUND";
         LOGE("Server JAR has no readable Main-Class manifest entry");
-        if (havePreviousDirectory) chdir(previousDirectory);
-        {
-            std::lock_guard<std::mutex> lock(g_server_mutex);
-            if (g_server_input) { env->DeleteGlobalRef(g_server_input); g_server_input = nullptr; }
+    } else {
+        jclass fileObjectClass = env->GetObjectClass(jarFileObject);
+        jmethodID toUri = env->GetMethodID(fileObjectClass, "toURI", "()Ljava/net/URI;");
+        jobject uri = env->CallObjectMethod(jarFileObject, toUri);
+        jclass uriClass = env->FindClass("java/net/URI");
+        jmethodID toUrl = env->GetMethodID(uriClass, "toURL", "()Ljava/net/URL;");
+        jobject jarUrl = env->CallObjectMethod(uri, toUrl);
+
+        jclass urlClass = env->FindClass("java/net/URL");
+        jobjectArray urls = env->NewObjectArray(1, urlClass, jarUrl);
+        jclass classLoaderClass = env->FindClass("java/lang/ClassLoader");
+        jmethodID getSystemClassLoader = env->GetStaticMethodID(
+            classLoaderClass, "getSystemClassLoader", "()Ljava/lang/ClassLoader;");
+        jobject parentLoader = env->CallStaticObjectMethod(classLoaderClass, getSystemClassLoader);
+        jclass urlLoaderClass = env->FindClass("java/net/URLClassLoader");
+        jmethodID newInstance = env->GetStaticMethodID(
+            urlLoaderClass, "newInstance",
+            "([Ljava/net/URL;Ljava/lang/ClassLoader;)Ljava/net/URLClassLoader;");
+        jobject loader = env->CallStaticObjectMethod(urlLoaderClass, newInstance, urls, parentLoader);
+
+        jmethodID loadClass = env->GetMethodID(
+            classLoaderClass, "loadClass", "(Ljava/lang/String;)Ljava/lang/Class;");
+        jobject serverClass = env->CallObjectMethod(loader, loadClass, mainClassName);
+        jclass classClass = env->FindClass("java/lang/Class");
+        jmethodID getMethod = env->GetMethodID(
+            classClass, "getMethod",
+            "(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;");
+        jclass stringArrayClass = env->FindClass("[Ljava/lang/String;");
+        jobjectArray parameterTypes = env->NewObjectArray(1, classClass, nullptr);
+        env->SetObjectArrayElement(parameterTypes, 0, stringArrayClass);
+        jobject mainMethod = env->CallObjectMethod(
+            serverClass, getMethod, env->NewStringUTF("main"), parameterTypes);
+
+        jclass stringClass = env->FindClass("java/lang/String");
+        jobjectArray serverArgs = env->NewObjectArray(0, stringClass, nullptr);
+        jobjectArray invokeArgs = env->NewObjectArray(1, env->FindClass("java/lang/Object"), nullptr);
+        env->SetObjectArrayElement(invokeArgs, 0, serverArgs);
+        jclass methodClass = env->FindClass("java/lang/reflect/Method");
+        jmethodID invoke = env->GetMethodID(
+            methodClass, "invoke",
+            "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;");
+
+        LOGE("Starting Minecraft server main class from %s", jarPath.c_str());
+        env->CallObjectMethod(mainMethod, invoke, nullptr, invokeArgs);
+        if (env->ExceptionCheck()) {
+            env->ExceptionDescribe();
+            env->ExceptionClear();
+            finalResult = "ERROR:SERVER_MAIN_FAILED";
+            LOGE("Minecraft server main method exited with an exception");
         }
-        g_server_running = false;
-        if (attached) g_vm->DetachCurrentThread();
-        return callerEnv->NewStringUTF("ERROR:SERVER_MAIN_CLASS_NOT_FOUND");
     }
 
-    jclass fileObjectClass = env->GetObjectClass(jarFileObject);
-    jmethodID toUri = env->GetMethodID(fileObjectClass, "toURI", "()Ljava/net/URI;");
-    jobject uri = env->CallObjectMethod(jarFileObject, toUri);
-    jclass uriClass = env->FindClass("java/net/URI");
-    jmethodID toUrl = env->GetMethodID(uriClass, "toURL", "()Ljava/net/URL;");
-    jobject jarUrl = env->CallObjectMethod(uri, toUrl);
-
-    jclass urlClass = env->FindClass("java/net/URL");
-    jobjectArray urls = env->NewObjectArray(1, urlClass, jarUrl);
-    jclass classLoaderClass = env->FindClass("java/lang/ClassLoader");
-    jmethodID getSystemClassLoader = env->GetStaticMethodID(
-        classLoaderClass, "getSystemClassLoader", "()Ljava/lang/ClassLoader;");
-    jobject parentLoader = env->CallStaticObjectMethod(classLoaderClass, getSystemClassLoader);
-    jclass urlLoaderClass = env->FindClass("java/net/URLClassLoader");
-    jmethodID newInstance = env->GetStaticMethodID(
-        urlLoaderClass, "newInstance",
-        "([Ljava/net/URL;Ljava/lang/ClassLoader;)Ljava/net/URLClassLoader;");
-    jobject loader = env->CallStaticObjectMethod(urlLoaderClass, newInstance, urls, parentLoader);
-
-    jmethodID loadClass = env->GetMethodID(
-        classLoaderClass, "loadClass", "(Ljava/lang/String;)Ljava/lang/Class;");
-    jobject serverClass = env->CallObjectMethod(loader, loadClass, mainClassName);
-    jclass classClass = env->FindClass("java/lang/Class");
-    jmethodID getMethod = env->GetMethodID(
-        classClass, "getMethod",
-        "(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;");
-    jclass stringArrayClass = env->FindClass("[Ljava/lang/String;");
-    jobjectArray parameterTypes = env->NewObjectArray(1, classClass, nullptr);
-    env->SetObjectArrayElement(parameterTypes, 0, stringArrayClass);
-    jobject mainMethod = env->CallObjectMethod(
-        serverClass, getMethod, env->NewStringUTF("main"), parameterTypes);
-
-    jclass stringClass = env->FindClass("java/lang/String");
-    jobjectArray serverArgs = env->NewObjectArray(0, stringClass, nullptr);
-    jobjectArray invokeArgs = env->NewObjectArray(1, env->FindClass("java/lang/Object"), nullptr);
-    env->SetObjectArrayElement(invokeArgs, 0, serverArgs);
-    jclass methodClass = env->FindClass("java/lang/reflect/Method");
-    jmethodID invoke = env->GetMethodID(
-        methodClass, "invoke",
-        "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;");
-
-    LOGE("Starting Minecraft server main class from %s", jarPath.c_str());
-    env->CallObjectMethod(mainMethod, invoke, nullptr, invokeArgs);
     jmethodID closeLog = env->GetMethodID(printStreamClass, "close", "()V");
     env->CallVoidMethod(serverLogStream, closeLog);
-    const bool failed = env->ExceptionCheck();
-    if (failed) {
-        env->ExceptionDescribe();
-        env->ExceptionClear();
-        LOGE("Minecraft server main method exited with an exception");
-    }
+    if (env->ExceptionCheck()) env->ExceptionClear();
 
+    // Closing the writer makes the input-pump thread leave its blocking read.
+    closeCommandWriter();
+    inputPump.join();
     {
         std::lock_guard<std::mutex> lock(g_server_mutex);
-        if (g_server_input) { env->DeleteGlobalRef(g_server_input); g_server_input = nullptr; }
+        if (g_server_input) {
+            env->DeleteGlobalRef(g_server_input);
+            g_server_input = nullptr;
+        }
     }
+    closeCommandReader();
     if (havePreviousDirectory) chdir(previousDirectory);
-    g_server_running = false;
     if (attached) g_vm->DetachCurrentThread();
 
-    return callerEnv->NewStringUTF(failed ? "ERROR:SERVER_MAIN_FAILED" : "SERVER_EXITED");
+    g_server_result = finalResult;
+    g_server_running = false;
 }
+
+} // namespace
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_dragonhost_agent_EmbeddedJvm_nativeLaunchServer(
+    JNIEnv* callerEnv, jobject /* thiz */, jstring jarPathValue, jstring workingDirectoryValue) {
+    if (!g_vm) return callerEnv->NewStringUTF("ERROR:JVM_NOT_STARTED");
+    if (g_server_running.exchange(true)) return callerEnv->NewStringUTF("ERROR:SERVER_ALREADY_RUNNING");
+
+    const std::string jarPath = fromJava(callerEnv, jarPathValue);
+    const std::string workingDirectory = fromJava(callerEnv, workingDirectoryValue);
+    if (jarPath.empty() || workingDirectory.empty()) {
+        g_server_running = false;
+        return callerEnv->NewStringUTF("ERROR:INVALID_SERVER_PATH");
+    }
+    if (pipe(g_command_pipe) != 0) {
+        g_server_running = false;
+        return callerEnv->NewStringUTF("ERROR:COMMAND_PIPE_FAILED");
+    }
+
+    g_server_result = "ERROR:SERVER_THREAD_FAILED";
+    std::thread serverThread([jarPath, workingDirectory]() {
+        runServerInEmbeddedVm(jarPath, workingDirectory);
+    });
+    serverThread.join();
+    return callerEnv->NewStringUTF(g_server_result.c_str());
+}
+
 
 extern "C" JNIEXPORT jstring JNICALL
 Java_com_dragonhost_agent_EmbeddedJvm_nativeSendServerCommand(
@@ -313,30 +391,15 @@ Java_com_dragonhost_agent_EmbeddedJvm_nativeSendServerCommand(
 
     std::string command = fromJava(callerEnv, commandValue);
     if (command.empty() || command.size() > 256 ||
-        command.find_first_of("\r\n") != std::string::npos)
+        command.find_first_of("\\r\\n") != std::string::npos)
         return callerEnv->NewStringUTF("ERROR:INVALID_COMMAND");
 
-    bool attached = false;
-    JNIEnv* env = attachEmbedded(&attached);
-    if (!env) return callerEnv->NewStringUTF("ERROR:EMBEDDED_VM_ATTACH_FAILED");
-
+    const std::string line = command + "\\n";
     std::lock_guard<std::mutex> lock(g_server_mutex);
-    if (!g_server_input) {
-        if (attached) g_vm->DetachCurrentThread();
+    if (g_command_pipe[1] < 0)
         return callerEnv->NewStringUTF("ERROR:SERVER_CONSOLE_UNAVAILABLE");
-    }
-
-    jclass outputClass = env->GetObjectClass(g_server_input);
-    jmethodID write = env->GetMethodID(outputClass, "write", "([B)V");
-    jmethodID flush = env->GetMethodID(outputClass, "flush", "()V");
-    const std::string line = command + "\n";
-    jbyteArray bytes = env->NewByteArray(static_cast<jsize>(line.size()));
-    env->SetByteArrayRegion(bytes, 0, static_cast<jsize>(line.size()),
-                            reinterpret_cast<const jbyte*>(line.data()));
-    env->CallVoidMethod(g_server_input, write, bytes);
-    env->CallVoidMethod(g_server_input, flush);
-    const bool failed = env->ExceptionCheck();
-    if (failed) env->ExceptionClear();
-    if (attached) g_vm->DetachCurrentThread();
-    return callerEnv->NewStringUTF(failed ? "ERROR:COMMAND_WRITE_FAILED" : "COMMAND_SENT");
+    const ssize_t written = write(g_command_pipe[1], line.data(), line.size());
+    if (written != static_cast<ssize_t>(line.size()))
+        return callerEnv->NewStringUTF("ERROR:COMMAND_WRITE_FAILED");
+    return callerEnv->NewStringUTF("COMMAND_SENT");
 }
