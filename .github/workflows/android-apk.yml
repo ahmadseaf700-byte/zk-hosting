@@ -1,4 +1,7 @@
 name: Android APK
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
 on:
   push:
     branches: [main, feature/android-embedded-jvm-foundation]
