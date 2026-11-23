@@ -274,7 +274,7 @@ const app = http.createServer(async (req, res) => {
       pairingCodes.delete(code);
       const token = crypto.randomBytes(32).toString("hex");
       const agent = {
-        id: crypto.randomUUID(), userId: pairing.userId,
+        id: crypto.randomUUID(), userId: pairing.userId, serverId: pairing.serverId || null,
         name: String(body.deviceName || "DragonHost Android").trim().slice(0, 48) || "DragonHost Android",
         tokenHash: hashToken(token), createdAt: new Date().toISOString(),
         lastSeenAt: new Date().toISOString(), status: "online"
@@ -307,7 +307,7 @@ const app = http.createServer(async (req, res) => {
         }
         let queuedProvisioning = 0;
         for (const server of servers.values()) {
-          if (!agent.minecraftRuntime || server.userId !== agent.userId || server.hostStatus !== "not_paired" || server.eulaAccepted !== true) continue;
+          if (!agent.minecraftRuntime || server.userId !== agent.userId || (agent.serverId && agent.serverId !== server.id) || server.hostStatus !== "not_paired" || server.eulaAccepted !== true) continue;
           const task = enqueueTask(agent, server, "provision", { server: { id: server.id, name: server.name, subdomain: server.subdomain, motd: server.motd, edition: server.edition, software: server.software, version: server.version, gamemode: server.gamemode, difficulty: server.difficulty, maxPlayers: server.maxPlayers, cracked: server.cracked, allowFlight: server.allowFlight, pvp: server.pvp, eulaAccepted: server.eulaAccepted } });
           server.hostStatus = "provisioning";
           server.provisionTaskId = task.id;
@@ -394,12 +394,23 @@ const app = http.createServer(async (req, res) => {
       return sendJson(res, 200, { servers: ownedServers, note: "حالة السيرفرات تعتمد على آخر اتصال مؤكد من Hosting Agent." });
     }
 
+    const pairCodeMatch = url.pathname.match(/^\/api\/servers\/([0-9a-f-]+)\/agent-code$/i);
+    if (req.method === "POST" && pairCodeMatch) {
+      const target = servers.get(pairCodeMatch[1]);
+      if (!target || target.userId !== user.id) return sendJson(res, 404, { error: "السيرفر غير موجود." });
+      for (const [code, item] of pairingCodes) if (item.expiresAt <= Date.now()) pairingCodes.delete(code);
+      let code;
+      do { code = String(crypto.randomInt(0, 1_000_000)).padStart(6, "0"); } while (pairingCodes.has(code));
+      pairingCodes.set(code, { userId: user.id, serverId: target.id, expiresAt: Date.now() + 5 * 60 * 1000 });
+      return sendJson(res, 201, { code, serverId: target.id, serverName: target.name, expiresInSeconds: 300 });
+    }
+
     const actionMatch = url.pathname.match(/^\/api\/servers\/([0-9a-f-]+)\/(start|stop|restart)$/i);
     if (actionMatch && req.method === "POST") {
       const target = servers.get(actionMatch[1]);
       if (!target || target.userId !== user.id) return sendJson(res, 404, { error: "السيرفر غير موجود." });
-      const agent = [...agents.values()].find(item => item.userId === user.id && agentIsOnline(item));
-      if (!agent) return sendJson(res, 503, { error: "جهاز الاستضافة غير متصل. اربط Hosting Agent أولاً.", code: "AGENT_NOT_CONNECTED" });
+      const agent = [...agents.values()].find(item => item.userId === user.id && agentIsOnline(item) && (!item.serverId || item.serverId === target.id));
+      if (!agent) return sendJson(res, 503, { error: "لا يوجد جهاز استضافة مربوط بهذا السيرفر ومتصل حالياً.", code: "AGENT_NOT_CONNECTED" });
       if (agent.minecraftRuntime === false) return sendJson(res, 503, { error: "تطبيق Android متصل، لكن محرك تشغيل Minecraft لم يُدمج بعد.", code: "AGENT_RUNTIME_UNAVAILABLE" });
       const action = actionMatch[2];
       const task = enqueueTask(agent, target, action, { server: { id: target.id, name: target.name, subdomain: target.subdomain, motd: target.motd, edition: target.edition, software: target.software, version: target.version, gamemode: target.gamemode, difficulty: target.difficulty, maxPlayers: target.maxPlayers, cracked: target.cracked, allowFlight: target.allowFlight, pvp: target.pvp, eulaAccepted: target.eulaAccepted } });
@@ -467,14 +478,17 @@ const app = http.createServer(async (req, res) => {
           status: "offline", hostStatus: "not_paired", createdAt: new Date().toISOString()
         };
         servers.set(server.id, server);
-        const agent = [...agents.values()].find(item => item.userId === user.id && agentIsOnline(item) && item.minecraftRuntime !== false);
+        let initialPairCode;
+        do { initialPairCode = String(crypto.randomInt(0, 1_000_000)).padStart(6, "0"); } while (pairingCodes.has(initialPairCode));
+        pairingCodes.set(initialPairCode, { userId: user.id, serverId: server.id, expiresAt: Date.now() + 5 * 60 * 1000 });
+        const agent = [...agents.values()].find(item => item.userId === user.id && agentIsOnline(item) && item.minecraftRuntime !== false && (!item.serverId || item.serverId === server.id));
         if (agent) {
           server.hostStatus = "provisioning";
           const task = enqueueTask(agent, server, "provision", { server: { id: server.id, name: server.name, subdomain: server.subdomain, motd: server.motd, edition: server.edition, software: server.software, version: server.version, gamemode: server.gamemode, difficulty: server.difficulty, maxPlayers: server.maxPlayers, cracked: server.cracked, allowFlight: server.allowFlight, pvp: server.pvp, eulaAccepted: server.eulaAccepted } });
           server.provisionTaskId = task.id;
         }
         await saveData();
-        return sendJson(res, 201, { server: { ...server, userId: undefined }, queued: !!agent });
+        return sendJson(res, 201, { server: { ...server, userId: undefined }, queued: !!agent, pairingCode: initialPairCode, pairingCodeExpiresInSeconds: 300 });
       } catch (error) {
         console.error("Server create error:", error);
         return sendJson(res, 500, { error: "تعذر إنشاء السيرفر حالياً." });

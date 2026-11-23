@@ -93,9 +93,17 @@ async function loadServers() {
       <div class="server-card-top"><span class="server-cube">▦</span><span class="status-pill ${s.status === "online" ? "online" : s.status === "error" ? "error" : "pending"}">${s.status === "online" ? "يعمل" : s.status === "starting" ? "جارٍ التشغيل" : s.status === "stopping" ? "جارٍ الإيقاف" : s.status === "restarting" ? "جارٍ إعادة التشغيل" : s.status === "error" ? "خطأ" : "متوقف"}</span></div>
       <h3>${escapeHtml(s.name)}</h3><p class="server-address">العنوان المقترح: ${escapeHtml(s.subdomain || "لم يحدد عنوان")}.dragonhost.net</p>
       <div class="server-tags"><span>${escapeHtml(s.edition.toUpperCase())}</span><span>${escapeHtml(s.software)}</span><span>${escapeHtml(s.version)}</span></div>
-      <div class="server-card-bottom"><small>${s.hostStatus === "ready" ? (s.status === "online" ? "جهاز الاستضافة متصل" : "السيرفر جاهز للتشغيل") : s.hostStatus === "provisioning" ? "جارٍ تجهيز ملفات Minecraft" : s.hostStatus === "provision_failed" ? "فشل تجهيز السيرفر" : "اربط جهاز الاستضافة"}</small><button type="button" class="text-button" data-manage-server="${escapeHtml(s.id)}">إدارة السيرفر ⚙</button></div>
+      <div class="server-card-bottom"><small>${s.hostStatus === "ready" ? (s.status === "online" ? "جهاز الاستضافة متصل" : "السيرفر جاهز للتشغيل") : s.hostStatus === "provisioning" ? "جارٍ تجهيز ملفات Minecraft" : s.hostStatus === "provision_failed" ? "فشل تجهيز السيرفر" : "اربط جهاز الاستضافة"}</small><button type="button" class="text-button" data-server-pair="${escapeHtml(s.id)}">رمز ربط الهاتف</button><button type="button" class="text-button" data-manage-server="${escapeHtml(s.id)}">إدارة السيرفر ⚙</button></div>
     </article>`).join("");
     list.querySelectorAll("[data-manage-server]").forEach(btn => btn.addEventListener("click", () => openServerManager(btn.dataset.manageServer)));
+    list.querySelectorAll("[data-server-pair]").forEach(btn => btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      try {
+        const data = await api("/api/servers/" + encodeURIComponent(btn.dataset.serverPair) + "/agent-code", { method: "POST" });
+        window.prompt("رمز ربط هذا السيرفر فقط — صالح لمدة 5 دقائق. أدخله في تطبيق DragonHost Agent:", data.code);
+      } catch (error) { window.alert(error.message); }
+      finally { btn.disabled = false; }
+    }));
   } catch (error) { list.innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`; }
 }
 
@@ -223,7 +231,8 @@ wizardForm.addEventListener("submit", async event => {
     const data = await api("/api/servers", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(formPayload()) });
     $("provision-percent").textContent = "100%"; $("provision-bar").style.width = "100%";
     $("provision-status").textContent = "تم حفظ إعدادات السيرفر بنجاح. بانتظار جهاز الاستضافة لتحميل النواة وتشغيل العالم.";
-    $("wizard-message").textContent = "تم إنشاء السيرفر! ستجده الآن في لوحة التحكم.";
+    $("wizard-message").textContent = "تم إنشاء السيرفر! رمز ربط الهاتف صالح لمدة 5 دقائق.";
+    if (data.pairingCode) window.prompt("تم إنشاء السيرفر " + data.server.name + ". هذا رمز ربط الاستضافة الخاص به (صالح 5 دقائق):", data.pairingCode);
     await loadServers();
     setTimeout(() => { wizardForm.reset(); $("motd").value = "§aWelcome to §bDragonHost!"; renderMotd($("motd").value); $("subdomain-status").textContent = "استخدم أحرفاً إنجليزية صغيرة وأرقاماً وشرطة فقط."; subdomainAvailable = false; setStep(1); navigate("overview"); }, 1600);
   } catch (error) { $("wizard-message").textContent = error.message; }

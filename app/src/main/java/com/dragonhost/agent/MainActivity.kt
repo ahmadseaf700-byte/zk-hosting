@@ -26,6 +26,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var codeInput: EditText
     private lateinit var urlInput: EditText
     private lateinit var pairButton: Button
+    private lateinit var runtimeButton: Button
 
     private fun securePrefs() = EncryptedSharedPreferences.create(
         this,
@@ -66,6 +67,19 @@ class MainActivity : AppCompatActivity() {
             setPadding(0, 8, 0, 18)
         }
         root.addView(status, matchWrap())
+        root.addView(TextView(this).apply {
+            text = RuntimeCompatibility.inspect(this@MainActivity).summary()
+            textSize = 13f
+            setTextColor(0xFFB8C5CE.toInt())
+            gravity = Gravity.CENTER
+            setPadding(12, 12, 12, 18)
+        }, matchWrap())
+        runtimeButton = Button(this).apply {
+            text = "تنزيل واختبار Java 21"
+            setOnClickListener { installAndTestJava() }
+        }
+        root.addView(runtimeButton, matchWrap().apply { bottomMargin = 12 })
+
         urlInput = EditText(this).apply {
             hint = "رابط DragonHost"
             setSingleLine(true)
@@ -105,6 +119,42 @@ class MainActivity : AppCompatActivity() {
             gravity = Gravity.CENTER
         }, matchWrap())
         setContentView(root)
+    }
+
+
+    private fun installAndTestJava() {
+        if (!runtimeButton.isEnabled) return
+        runtimeButton.isEnabled = false
+        status.text = "جارٍ تجهيز Java 21..."
+        executor.execute {
+            try {
+                val runtime = RuntimeInstaller.install(this) { message ->
+                    runOnUiThread { status.text = message }
+                }
+                runOnUiThread { status.text = "تم تنزيل Java. جارٍ اختبار تشغيل JVM..." }
+                val result = EmbeddedJvm().nativeStart(
+                    runtime.absolutePath,
+                    cacheDir.absolutePath,
+                    filesDir.absolutePath
+                )
+                runOnUiThread {
+                    status.text = when {
+                        result.startsWith("JVM_STARTED:21") ->
+                            "نجح اختبار Java 21 داخل التطبيق: $result"
+                        result == "ALREADY_RUNNING" ->
+                            "Java تعمل مسبقاً داخل التطبيق"
+                        else -> "نتيجة اختبار Java: $result"
+                    }
+                }
+            } catch (error: Exception) {
+                runOnUiThread {
+                    status.text = "تعذر تجهيز أو تشغيل Java 21: " +
+                        (error.message ?: "خطأ غير معروف")
+                }
+            } finally {
+                runOnUiThread { runtimeButton.isEnabled = true }
+            }
+        }
     }
 
     private fun matchWrap() = LinearLayout.LayoutParams(

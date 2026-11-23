@@ -1,7 +1,10 @@
 name: Android APK
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
 on:
   push:
-    branches: [main]
+    branches: [main, feature/android-embedded-jvm-foundation]
     paths: ["app/**", "*.gradle.kts", "gradle.properties", ".github/workflows/android-apk.yml"]
   pull_request:
     branches: [main]
@@ -17,6 +20,8 @@ jobs:
           distribution: temurin
           java-version: 17
       - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools platforms;android-35 build-tools;35.0.0 cmake;3.22.1 ndk;28.2.13676358
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 8.9
