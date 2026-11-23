@@ -23,6 +23,24 @@ class ServerRuntimeManager(context: Context) {
     fun currentState(): State = state.get()
     fun lastResult(): String = lastResult
 
+    fun readRecentLogs(prepared: ServerWorkspace.Prepared, maxChars: Int = 24_000): String {
+        require(maxChars in 1..100_000)
+        val root = File(appContext.filesDir, "minecraft-servers").canonicalFile
+        val directory = prepared.directory.canonicalFile
+        check(directory.parentFile == root) { "مجلد السيرفر خارج مساحة DragonHost" }
+        val log = File(directory, "server.log").canonicalFile
+        check(log.parentFile == directory) { "مسار السجل غير آمن" }
+        if (!log.isFile) return "لا يوجد سجل تشغيل بعد."
+        val length = log.length()
+        val start = (length - maxChars).coerceAtLeast(0L)
+        return java.io.RandomAccessFile(log, "r").use { file ->
+            file.seek(start)
+            val bytes = ByteArray((length - start).toInt())
+            file.readFully(bytes)
+            String(bytes, Charsets.UTF_8)
+        }
+    }
+
     @Synchronized
     fun start(
         prepared: ServerWorkspace.Prepared,
