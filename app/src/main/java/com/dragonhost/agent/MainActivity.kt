@@ -26,6 +26,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var codeInput: EditText
     private lateinit var urlInput: EditText
     private lateinit var pairButton: Button
+    private lateinit var runtimeButton: Button
 
     private fun securePrefs() = EncryptedSharedPreferences.create(
         this,
@@ -73,10 +74,11 @@ class MainActivity : AppCompatActivity() {
             gravity = Gravity.CENTER
             setPadding(12, 12, 12, 18)
         }, matchWrap())
-        root.addView(Button(this).apply {
+        runtimeButton = Button(this).apply {
             text = "تنزيل واختبار Java 21"
             setOnClickListener { installAndTestJava() }
-        }, matchWrap().apply { bottomMargin = 12 })
+        }
+        root.addView(runtimeButton, matchWrap().apply { bottomMargin = 12 })
 
         urlInput = EditText(this).apply {
             hint = "رابط DragonHost"
@@ -121,6 +123,8 @@ class MainActivity : AppCompatActivity() {
 
 
     private fun installAndTestJava() {
+        if (!runtimeButton.isEnabled) return
+        runtimeButton.isEnabled = false
         status.text = "جارٍ تجهيز Java 21..."
         executor.execute {
             try {
@@ -147,6 +151,8 @@ class MainActivity : AppCompatActivity() {
                     status.text = "تعذر تجهيز أو تشغيل Java 21: " +
                         (error.message ?: "خطأ غير معروف")
                 }
+            } finally {
+                runOnUiThread { runtimeButton.isEnabled = true }
             }
         }
     }
