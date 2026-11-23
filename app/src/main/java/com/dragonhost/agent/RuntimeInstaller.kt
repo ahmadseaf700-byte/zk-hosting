@@ -33,6 +33,11 @@ object RuntimeInstaller {
             "هذا الإصدار يتطلب معمارية arm64-v8a"
         }
 
+        val availableBytes = android.os.StatFs(context.filesDir.absolutePath).availableBytes
+        require(availableBytes >= 2L * 1024L * 1024L * 1024L) {
+            "يلزم توفر 2 GB على الأقل في مساحة التطبيق لتثبيت Java بأمان"
+        }
+
         val runtimeDir = File(context.filesDir, "runtimes/jre-21")
         if (isValidRuntime(runtimeDir)) return runtimeDir
 
