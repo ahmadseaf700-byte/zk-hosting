@@ -12,13 +12,17 @@ data class RuntimeCompatibility(
     val minimumApiSupported: Boolean,
     val freeStorageBytes: Long
 ) {
+    val hasEnoughStorage: Boolean
+        get() = freeStorageBytes >= 2L * 1024L * 1024L * 1024L
+
     val canEvaluateCandidateRuntime: Boolean
-        get() = arm64Supported && minimumApiSupported
+        get() = arm64Supported && minimumApiSupported && hasEnoughStorage
 
     fun summary(): String {
         val storageGb = freeStorageBytes.toDouble() / (1024.0 * 1024.0 * 1024.0)
         val abiState = if (arm64Supported) "مدعوم مبدئياً" else "غير مدعوم حالياً"
         val apiState = if (minimumApiSupported) "مناسب للحد الأدنى" else "يتطلب Android 10 أو أحدث"
+        val storageState = if (hasEnoughStorage) "المساحة المتاحة كافية مبدئياً" else "يلزم توفر 2 GB على الأقل قبل تنزيل Java"
         val evaluationState = if (canEvaluateCandidateRuntime) {
             "يمكن الانتقال إلى اختبار توافق Java 21"
         } else {
@@ -27,7 +31,7 @@ data class RuntimeCompatibility(
         return String.format(
             Locale.US,
             "فحص توافق Java 21 (أولي):\nAndroid API: %d (%s)\nالمعمارية: %s — %s\nالمساحة الحرة: %.2f GB\n%s\nهذا الفحص لا يعني أن Minecraft أصبح قابلاً للتشغيل بعد.",
-            androidApi, apiState, primaryAbi, abiState, storageGb, evaluationState
+            androidApi, apiState, primaryAbi, abiState, storageGb, storageState, evaluationState
         )
     }
 
