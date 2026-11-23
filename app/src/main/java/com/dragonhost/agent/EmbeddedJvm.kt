@@ -1,10 +1,8 @@
 package com.dragonhost.agent
 
 /**
- * Minimal in-process HotSpot bootstrap.
- *
- * The runtime must be installed and SHA-256 verified before calling start().
- * This class deliberately does not launch Minecraft or advertise runtime capability.
+ * JNI bridge to the embedded Java 21 VM.
+ * The JVM must be started successfully before server methods are called.
  */
 class EmbeddedJvm {
     companion object {
@@ -18,4 +16,10 @@ class EmbeddedJvm {
         tempDirectory: String,
         homeDirectory: String
     ): String
+
+    /** Blocks until the server main method exits; call from a dedicated worker thread. */
+    external fun nativeLaunchServer(jarPath: String, workingDirectory: String): String
+
+    /** Sends a single console command to the embedded server's standard input. */
+    external fun nativeSendServerCommand(command: String): String
 }
