@@ -82,9 +82,9 @@ Java_com_dragonhost_agent_EmbeddedJvm_nativeStart(
     const std::string javaHome = "-Djava.home=" + runtimeRoot;
     const std::string javaTmp = "-Djava.io.tmpdir=" + tempDir;
     const std::string userHome = "-Duser.home=" + homeDir;
-    const std::string timezone = "-Duser.timezone=UTC";
     const std::string dnsConfig = "-Djdk.android.resolvConf=" + homeDir + "/resolv.conf";
-    JavaVMOption options[7]{};
+    const std::string timezone = "-Duser.timezone=UTC";
+    JavaVMOption options[8]{};
     options[0].optionString = const_cast<char*>(javaHome.c_str());
     options[1].optionString = const_cast<char*>(javaTmp.c_str());
     options[2].optionString = const_cast<char*>(userHome.c_str());
@@ -92,10 +92,11 @@ Java_com_dragonhost_agent_EmbeddedJvm_nativeStart(
     options[4].optionString = const_cast<char*>("-XX:-UsePerfData");
     options[5].optionString = const_cast<char*>("-XX:-UseContainerSupport");
     options[6].optionString = const_cast<char*>(dnsConfig.c_str());
+    options[7].optionString = const_cast<char*>(timezone.c_str());
 
     JavaVMInitArgs args{};
     args.version = JNI_VERSION_1_8;
-    args.nOptions = 7;
+    args.nOptions = 8;
     args.options = options;
     args.ignoreUnrecognized = JNI_FALSE;
 
