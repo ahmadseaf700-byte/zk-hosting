@@ -1,6 +1,6 @@
 # Android Embedded JVM — Technical Design
 
-Status: design decision only. This document does not claim that Minecraft can run in the Android APK yet.
+Status: experimental implementation in progress. The runtime installer and JNI smoke-test action are now in the Android branch, but neither has been validated on a physical phone. Minecraft server execution is not implemented yet.
 
 ## Current state
 
@@ -47,4 +47,4 @@ When using an in-process HotSpot VM on Android 11+, evaluate the runtime's heap-
 
 ## Current implementation boundary
 
-No runtime is bundled, no JVM is launched, and no Minecraft task is executed by this design document. The existing Node.js/Termux/Linux agent remains the only implemented server execution path. Android runtime work must proceed in separately testable steps.
+The Android app can now download and verify the experimental runtime and attempt an in-process JVM smoke test, but the build and device behaviour are not yet confirmed. No Minecraft server JAR is provisioned or launched, and no Android task execution is enabled. The existing Node.js/Termux/Linux agent remains the only implemented server execution path.
