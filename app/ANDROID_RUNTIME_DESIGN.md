@@ -25,7 +25,7 @@ The intended execution model is an in-process JVM created through JNI (`JNI_Crea
 5. Stream stdout/stderr and console input through a bounded, lifecycle-aware bridge.
 6. Shut down the server cleanly and destroy the VM only after the server process lifecycle has ended.
 
-When using an in-process HotSpot VM on Android 11+, evaluate the runtime's heap-tagging note and set `android:allowNativeHeapPointerTagging="false"` before enabling JNI VM creation. Do not change this manifest flag until the native integration is actually present and tested.
+When using an in-process HotSpot VM on Android 11+, the manifest now sets `android:allowNativeHeapPointerTagging="false"` as required by the candidate runtime's embedder notes. This setting and JNI startup still require physical-device validation.
 
 ## Runtime installer and JNI bootstrap (implemented, not yet validated)
 
