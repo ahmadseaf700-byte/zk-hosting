@@ -59,7 +59,7 @@ class ServerRuntimeManager(context: Context) {
             "تعذر تشغيل Java 21: $jvmResult"
         }
 
-        worker = Thread({
+        val launcher = Thread({
             notify(onStatus, State.STARTING, "جارٍ تشغيل محرك Minecraft...")
             val result = runCatching {
                 jvm.nativeLaunchServer(jar.absolutePath, directory.absolutePath)
@@ -74,6 +74,30 @@ class ServerRuntimeManager(context: Context) {
             )
         }, "DragonHost-Minecraft-" + directory.name).apply {
             isDaemon = false
+        }
+        worker = launcher
+        launcher.start()
+
+        // A successful Minecraft status handshake is required before reporting RUNNING.
+        Thread({
+            val deadline = System.currentTimeMillis() + 180_000L
+            var ready = false
+            while (System.currentTimeMillis() < deadline && launcher.isAlive) {
+                if (MinecraftStatusProbe.check() != null) {
+                    ready = state.compareAndSet(State.STARTING, State.RUNNING)
+                    if (ready) {
+                        notify(onStatus, State.RUNNING, "السيرفر يستجيب لفحص Minecraft على المنفذ 25565.")
+                    }
+                    break
+                }
+                try { Thread.sleep(1000L) } catch (_: InterruptedException) { break }
+            }
+            if (!ready && launcher.isAlive && state.compareAndSet(State.STARTING, State.FAILED)) {
+                lastResult = "STATUS_PROBE_TIMEOUT"
+                notify(onStatus, State.FAILED, "لم ينجح فحص Minecraft خلال 3 دقائق؛ قد يكون التشغيل متعثراً.")
+            }
+        }, "DragonHost-Readiness-" + directory.name).apply {
+            isDaemon = true
             start()
         }
     }
@@ -89,9 +113,10 @@ class ServerRuntimeManager(context: Context) {
 
     fun stop(): String {
         val current = state.get()
-        check(current == State.RUNNING || current == State.STARTING) {
-            "لا يوجد سيرفر يعمل حالياً"
-        }
+        check(
+            current == State.RUNNING || current == State.STARTING ||
+                (current == State.FAILED && worker?.isAlive == true)
+        ) { "لا يوجد سيرفر يعمل حالياً" }
         state.set(State.STOPPING)
         val result = jvm.nativeSendServerCommand("stop")
         lastResult = result
